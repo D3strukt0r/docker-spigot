@@ -1,8 +1,9 @@
 # docker-spigot
 Use the Minecraft Spigot server as a Docker container
 
-![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)
-![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg)
+Docker | Travis (master) | Travis (develop)
+--- | --- | ---
+![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)<br />![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop)
 
 ## Getting Started
 
@@ -18,19 +19,72 @@ In order to run this container you'll need docker installed.
 
 ### Usage
 
-#### Container Parameters
+#### Docker CLI
 
-To start the server use the command given below. To be able to type commands directly in your terminal `-i -t` or `-it`. To detach from the terminal use `Ctrl + P + Q`. To start it detached from the beginning use `-d`
-
-Spigot uses `25565` as a default port, however, if you use BungeeCord or a similar app, change the port to something else (`-p 25566:25565`).
-
-It is not necessary to add any volumes, but if you do add it (`-v <host_dir>:/data`), your data will be saved. If you don't add it, it is impossible to change any config file, or add plugins.
-
-```shell
-docker run -i -t -p 25565:25565 -v D:\spigot_data:/data d3strukt0r/spigot
+To start the server use the following command:
+```shell script
+docker run -i -t -p 25565:25565 -v $(pwd)/data:/data d3strukt0r/spigot
 ```
 
-In addition, use the environment variables from the next paragraphs to your desire with e. g. `-e JAVA_MEMORY=1G`.
+##### `-i -t`
+To be able to type commands directly in your terminal `-i -t` or `-it`. To detach from the terminal use `Ctrl + P + Q`. To start it detached from the beginning use `-d`
+
+##### `-p 25565:25565`
+Spigot uses `25565` as a default port, however, if you use Spigot or a similar app, change the port to something else (`-p 25566:25565`).
+
+##### `-v $(pwd)/data:/data`
+It is not necessary to add any volumes, but if you do add it (`-v <host_dir>:/data`), your data will be saved. If you don't add it, it is impossible to change any config file, or add plugins.
+
+##### `d3strukt0r/spigot`
+This is the repository on Docker Hub.
+
+##### `-Xms512M -Xmx512M`
+To add arguments, like memory limit, simply add them after the repo inside the command. Or when using a `docker-compose.yml` file, put it inside `command: ...`.
+
+```shell script
+docker run -d -p 25565:25577 -v $(pwd)/data:/data --name spigot d3strukt0r/spigot -Xms512M -Xmx512M
+```
+
+##### `-d`
+Run detached (in the background)
+
+##### `--name spigot`
+Give this container a name for easier reference later on.
+
+#### Docker CLI (with `screen`)
+
+However there is no way to attach back to it, so instead use a library in linux which is known as "screen":
+
+```shell script
+screen -d -m -S "spigot" docker run -i -t -p 25565:25577 -v $(pwd)/data:/data d3strukt0r/spigot -Xms512M -Xmx512M
+```
+
+##### `screen -d -m -S "spigot"`
+Creates like a window in the terminal which you can easily leave and enter.
+
+You can detach from the window using `CTRL` + `a` and then `d`.
+
+To reattach first find your screen with `screen -r`. And if you gave it a name, you can skip this.
+
+Then enter `screen -r spigot` or `screen -r 00000.pts-0.office` (or whatever was shown with `screen -r`)
+
+#### Docker Compose
+
+Example `docker-compose.yml` file:
+```yml
+version: '2'
+
+services:
+  spigot:
+    image: d3strukt0r/spigot
+    command: -Xms512M -Xmx512M
+    ports:
+      - 25565:25577
+    volumes:
+      - ./data:/data
+```
+
+And then use `docker-compose up` or `docker-compose up -d` for detached. Again using the experience with linux's `screen` library
 
 **Important**
 
@@ -44,61 +98,24 @@ server-port=25565
 
 If you need to add another port to your docker container, use `--expose` in your command.
 
-#### Environment Variables
-
-*   `SPIGOT_BASE_URL` - (Default: [https://cdn.getbukkit.org/spigot/spigot-]())
-
-    The base URL from where to get the file
-
-*   `SPIGOT_VERSION` - (Default: `latest`)
-
-    The build version to download (the default is set to take the last one)
-
-*   `SPIGOT_FILE_URL` - (Default: `.jar`)
-
-    The end part of the URL
-
-*   `SPIGOT_URL` - (Default: `${BUNGEECORD_BASE_URL}${BUNGEECORD_VERSION}${BUNGEECORD_FILE_URL}`)
-
-    Can be set to something completely custom
-
-*   `JAVA_MEMORY` - (Default: `512M`)
-
-    The Java memory heap size to specify to the JVM.
-
-*   `JAVA_BASE_MEMORY` - (Default: `${JAVA_MEMORY}`)
-
-    Can be set to use a different initial heap size.
-
-*   `JAVA_MAX_MEMORY` - (Default: `${JAVA_MEMORY}`)
-
-    Can be set to use a different max heap size.
-
-*   `JAVA_OPTIONS` - (No default value)
-
-    Additional -X options to pass to the JVM.
-
 #### Volumes
 
-*   `/data` - (Optional)
+* `/data` - (Optional)
 
-    Here go all data files, like: configs, plugins, logs, icons
-
-#### Useful File Locations
-
-*   `/app/start.sh` - This is the start script, which gets all the files and starts the server.
-
-*   `/app` - This is directory created in the Docker environment, and where all files will be put.
+Here go all data files, like: configs, plugins, logs, icons
 
 ## Built With
 
-*   [OpenJDK v12](https://hub.docker.com/_/openjdk)
-*   [Spigot](https://getbukkit.org/download/spigot)
+* [Java](https://www.java.com/de/) - Programming Language
+* [OpenJDK](https://hub.docker.com/_/openjdk) - The Java conatainer in Docker
+* [BungeeCord](https://ci.md-5.net/job/BungeeCord/) - The main software
+* [Travis CI](https://travis-ci.com/) - Automatic CI (Testing) / CD (Deployment)
+* [Docker](https://www.docker.com/) - Building a Container for the Server
 
 ## Find Us
 
-*   [GitHub](https://github.com/D3strukt0r/docker-spigot)
-*   [Docker Hub](https://hub.docker.com/r/d3strukt0r/spigot)
+* [GitHub](https://github.com/D3strukt0r/docker-spigot)
+* [Docker Hub](https://hub.docker.com/r/d3strukt0r/spigot)
 
 ## Contributing
 
@@ -111,16 +128,19 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ## Authors
 
-*   **Manuele Vaccari** - *Initial work* - [D3strukt0r](https://github.com/D3strukt0r)
+* **Manuele Vaccari** - [D3strukt0r](https://github.com/D3strukt0r) - *Initial work*
 
 See also the list of [contributors](https://github.com/D3strukt0r/docker-spigot/contributors) who
 participated in this project.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE.txt](LICENSE.txt) file for details
 
 ## Acknowledgments
 
-*   Kjell Havnesköld with [nimmis/docker-spigot](https://github.com/nimmis/docker-spigot)
-*   Sylvain CAU with [AshDevFr/docker-spigot](https://github.com/AshDevFr/docker-spigot)
+* Kjell Havnesköld with [nimmis/docker-spigot](https://github.com/nimmis/docker-spigot)
+* Sylvain CAU with [AshDevFr/docker-spigot](https://github.com/AshDevFr/docker-spigot)
+* Hat tip to anyone whose code was used
+* Inspiration
+* etc

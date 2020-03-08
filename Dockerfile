@@ -1,21 +1,37 @@
-# Use an official Java runtime as a parent image
-FROM openjdk:latest
+# -------
+# Builder
+# -------
 
-# Who is responsible for this project?
-MAINTAINER Manuele Vaccari <manuele.vaccari@gmail.com>
+FROM alpine:latest AS build
 
-# Volumes to use which stay between updates
-VOLUME ["/data"]
+RUN apk add curl git openjdk8-jre
 
-# Set the working directory to /app
+ARG SPIGOT_VERSION=latest
+
+WORKDIR /app/build
+RUN curl -o BuildTools.jar -fL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+
 WORKDIR /app
+RUN git config --global --unset core.autocrlf; exit 0
+RUN java -Xmx1G -jar build/BuildTools.jar --rev ${SPIGOT_VERSION}
 
-# Copy the source's directory contents into the container at /app
-COPY ./src /app
-RUN chmod +x *.sh
+WORKDIR /app/export
+WORKDIR /app
+RUN find -iname 'spigot-*.jar' -exec mv {} export/spigot.jar \;
 
-# Make port 25565 available to the world outside this container
+# -------
+# Final Container
+# -------
+
+FROM openjdk:8-jre-slim
+
+COPY --from=build /app/export/spigot.jar /app/spigot.jar
+
+ENV JAVA_BASE_MEMORY=512M
+ENV JAVA_MAX_MEMORY=512M
+
+VOLUME ["/data"]
 EXPOSE 25565
 
-# Run spigot.jar when the container launches
-CMD ["./start.sh"]
+WORKDIR /data
+ENTRYPOINT ["java", "-Xms${JAVA_BASE_MEMORY}", "-Xmx${JAVA_MAX_MEMORY}", "-jar", "../app/spigot.jar"]
