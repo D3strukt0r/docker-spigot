@@ -1,21 +1,43 @@
-# Use an official Java runtime as a parent image
-FROM openjdk:latest
+# -------
+# Builder
+# -------
 
-# Who is responsible for this project?
-MAINTAINER Manuele Vaccari <manuele.vaccari@gmail.com>
+FROM alpine:latest AS build
 
-# Volumes to use which stay between updates
-VOLUME ["/data"]
+RUN apk add curl git openjdk8-jre
+RUN git config --global --unset core.autocrlf; exit 0
 
-# Set the working directory to /app
-WORKDIR /app
+ARG SPIGOT_VERSION=latest
 
-# Copy the source's directory contents into the container at /app
-COPY ./src /app
-RUN chmod +x *.sh
+# Download the builder
+WORKDIR /app/build
+RUN curl -o BuildTools.jar -fL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 
-# Make port 25565 available to the world outside this container
+# Execute the builder
+WORKDIR /app/build/data
+RUN java -Xmx1G -jar ../BuildTools.jar --rev ${SPIGOT_VERSION}
+
+# Copy the resulting file into a known file name
+RUN find -iname 'spigot-*.jar' -exec mv {} /app/spigot.jar \;
+
+# -------
+# Final Container
+# -------
+
+FROM openjdk:8-jre-slim
+
+COPY --from=build /app/spigot.jar /app/spigot.jar
+
+COPY docker-entrypoint.sh /usr/local/bin/
+# Backwards compatibility
+RUN ln -s /usr/local/bin/docker-entrypoint.sh /
+
+ENV JAVA_BASE_MEMORY=512M
+ENV JAVA_MAX_MEMORY=512M
+
 EXPOSE 25565
 
-# Run spigot.jar when the container launches
-CMD ["./start.sh"]
+WORKDIR /data
+VOLUME ["/data"]
+
+ENTRYPOINT ["docker-entrypoint.sh"]
