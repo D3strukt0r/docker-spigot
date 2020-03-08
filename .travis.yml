@@ -34,7 +34,7 @@ jobs:
     - env: SPIGOT_VERSION=1.8.3
     - env: SPIGOT_VERSION=1.8
     
-    before_install:
+before_install:
   # Make file executable (Not by default)
   - chmod +x docker_push.sh
 
