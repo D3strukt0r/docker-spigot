@@ -36,7 +36,7 @@ jobs:
     
 before_install:
   # Make file executable (Not by default)
-  - chmod +x docker_push.sh
+  - chmod +x docker-push.sh
 
   # Login to make sure we have access to private dockers
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
@@ -45,4 +45,4 @@ script:
   - docker build --build-arg $SPIGOT_VERSION -t spigot .
 
 after_success:
-  - ./docker_push.sh
+  - ./docker-push.sh
