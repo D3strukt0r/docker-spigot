@@ -5,19 +5,20 @@
 FROM alpine:latest AS build
 
 RUN apk add curl git openjdk8-jre
+RUN git config --global --unset core.autocrlf; exit 0
 
 ARG SPIGOT_VERSION=latest
 
+# Download the builder
 WORKDIR /app/build
 RUN curl -o BuildTools.jar -fL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 
-WORKDIR /app
-RUN git config --global --unset core.autocrlf; exit 0
-RUN java -Xmx1G -jar build/BuildTools.jar --rev ${SPIGOT_VERSION}
+# Execute the builder
+WORKDIR /app/build/data
+RUN java -Xmx1G -jar ../BuildTools.jar --rev ${SPIGOT_VERSION}
 
-WORKDIR /app/export
-WORKDIR /app
-RUN find -iname 'spigot-*.jar' -exec mv {} export/spigot.jar \;
+# Copy the resulting file into a known file name
+RUN find -iname 'spigot-*.jar' -exec mv {} /app/spigot.jar \;
 
 # -------
 # Final Container
@@ -25,13 +26,18 @@ RUN find -iname 'spigot-*.jar' -exec mv {} export/spigot.jar \;
 
 FROM openjdk:8-jre-slim
 
-COPY --from=build /app/export/spigot.jar /app/spigot.jar
+COPY --from=build /app/spigot.jar /app/spigot.jar
+
+COPY docker-entrypoint.sh /usr/local/bin/
+# Backwards compatibility
+RUN ln -s /usr/local/bin/docker-entrypoint.sh /
 
 ENV JAVA_BASE_MEMORY=512M
 ENV JAVA_MAX_MEMORY=512M
 
-VOLUME ["/data"]
 EXPOSE 25565
 
 WORKDIR /data
-ENTRYPOINT ["java", "-Xms${JAVA_BASE_MEMORY}", "-Xmx${JAVA_MAX_MEMORY}", "-jar", "../app/spigot.jar"]
+VOLUME ["/data"]
+
+ENTRYPOINT ["docker-entrypoint.sh"]
