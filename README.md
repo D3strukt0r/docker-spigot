@@ -23,7 +23,7 @@ In order to run this container you'll need docker installed.
 
 To start the server use the following command:
 ```shell script
-docker run -i -t -p 25565:25565 -v $(pwd)/data:/data d3strukt0r/spigot
+docker run -i -t -p 25565:25565 -v $(pwd)/data:/data -e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G d3strukt0r/spigot
 ```
 
 ##### `-i -t`
@@ -38,11 +38,11 @@ It is not necessary to add any volumes, but if you do add it (`-v <host_dir>:/da
 ##### `d3strukt0r/spigot`
 This is the repository on Docker Hub.
 
-##### `-Xms512M -Xmx512M`
-To add arguments, like memory limit, simply add them after the repo inside the command. Or when using a `docker-compose.yml` file, put it inside `command: ...`.
+##### `-e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G`
+To add arguments, like memory limit, simply add them after the repo inside the command. Or when using a `docker-compose.yml` file, put it inside `environment: ...`.
 
 ```shell script
-docker run -d -p 25565:25577 -v $(pwd)/data:/data --name spigot d3strukt0r/spigot -Xms512M -Xmx512M
+docker run -d -p 25565:25577 -v $(pwd)/data:/data -e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G --name spigot d3strukt0r/spigot
 ```
 
 ##### `-d`
@@ -56,7 +56,7 @@ Give this container a name for easier reference later on.
 However there is no way to attach back to it, so instead use a library in linux which is known as "screen":
 
 ```shell script
-screen -d -m -S "spigot" docker run -i -t -p 25565:25577 -v $(pwd)/data:/data d3strukt0r/spigot -Xms512M -Xmx512M
+screen -d -m -S "spigot" docker run -i -t -p 25565:25577 -v $(pwd)/data:/data -e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G d3strukt0r/spigot
 ```
 
 ##### `screen -d -m -S "spigot"`
@@ -77,11 +77,13 @@ version: '2'
 services:
   spigot:
     image: d3strukt0r/spigot
-    command: -Xms512M -Xmx512M
     ports:
       - 25565:25577
     volumes:
       - ./data:/data
+    environment:
+      - JAVA_BASE_MEMORY=512M
+      - JAVA_MAX_MEMORY=1G
 ```
 
 And then use `docker-compose up` or `docker-compose up -d` for detached. Again using the experience with linux's `screen` library

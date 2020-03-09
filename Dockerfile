@@ -28,9 +28,7 @@ FROM openjdk:8-jre-slim
 
 COPY --from=build /app/spigot.jar /app/spigot.jar
 
-COPY docker-entrypoint.sh /usr/local/bin/
-# Backwards compatibility
-RUN ln -s /usr/local/bin/docker-entrypoint.sh /
+VOLUME ["/data"]
 
 ENV JAVA_BASE_MEMORY=512M
 ENV JAVA_MAX_MEMORY=512M
@@ -38,6 +36,5 @@ ENV JAVA_MAX_MEMORY=512M
 EXPOSE 25565
 
 WORKDIR /data
-VOLUME ["/data"]
-
+COPY docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
