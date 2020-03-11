@@ -1,6 +1,6 @@
+language: shell
 os: linux
 dist: bionic
-language: minimal
 services:
   - docker
 
@@ -10,39 +10,69 @@ notifications:
 jobs:
   include:
     - env: SPIGOT_VERSION=latest
-    - env: SPIGOT_VERSION=1.15.2
-    - env: SPIGOT_VERSION=1.15.1
-    - env: SPIGOT_VERSION=1.15
-    - env: SPIGOT_VERSION=1.14.4
-    - env: SPIGOT_VERSION=1.14.3
-    - env: SPIGOT_VERSION=1.14.2
-    - env: SPIGOT_VERSION=1.14.1
-    - env: SPIGOT_VERSION=1.14
-    - env: SPIGOT_VERSION=1.13.2
-    - env: SPIGOT_VERSION=1.13.1
-    - env: SPIGOT_VERSION=1.13
-    - env: SPIGOT_VERSION=1.12.2
-    - env: SPIGOT_VERSION=1.12.1
-    - env: SPIGOT_VERSION=1.12
-    - env: SPIGOT_VERSION=1.11
-    - env: SPIGOT_VERSION=1.10
-    - env: SPIGOT_VERSION=1.9.4
-    - env: SPIGOT_VERSION=1.9.2
-    - env: SPIGOT_VERSION=1.9
-    - env: SPIGOT_VERSION=1.8.8
-    - env: SPIGOT_VERSION=1.8.7
-    - env: SPIGOT_VERSION=1.8.3
-    - env: SPIGOT_VERSION=1.8
-    
+    - if: branch = master
+      env: SPIGOT_VERSION=1.15.2
+    - if: branch = master
+      env: SPIGOT_VERSION=1.15.1
+    - if: branch = master
+      env: SPIGOT_VERSION=1.15
+    - if: branch = master
+      env: SPIGOT_VERSION=1.14.4
+    - if: branch = master
+      env: SPIGOT_VERSION=1.14.3
+    - if: branch = master
+      env: SPIGOT_VERSION=1.14.2
+    - if: branch = master
+      env: SPIGOT_VERSION=1.14.1
+    - if: branch = master
+      env: SPIGOT_VERSION=1.14
+    - if: branch = master
+      env: SPIGOT_VERSION=1.13.2
+    - if: branch = master
+      env: SPIGOT_VERSION=1.13.1
+    - if: branch = master
+      env: SPIGOT_VERSION=1.13
+    - if: branch = master
+      env: SPIGOT_VERSION=1.12.2
+    - if: branch = master
+      env: SPIGOT_VERSION=1.12.1
+    - if: branch = master
+      env: SPIGOT_VERSION=1.12
+    - if: branch = master
+      env: SPIGOT_VERSION=1.11
+    - if: branch = master
+      env: SPIGOT_VERSION=1.10
+    - if: branch = master
+      env: SPIGOT_VERSION=1.9.4
+    - if: branch = master
+      env: SPIGOT_VERSION=1.9.2
+    - if: branch = master
+      env: SPIGOT_VERSION=1.9
+    - if: branch = master
+      env: SPIGOT_VERSION=1.8.8
+    - if: branch = master
+      env: SPIGOT_VERSION=1.8.7
+    - if: branch = master
+      env: SPIGOT_VERSION=1.8.3
+    - if: branch = master
+      env: SPIGOT_VERSION=1.8
+
 before_install:
   # Make file executable (Not by default)
   - chmod +x docker-push.sh
 
   # Login to make sure we have access to private dockers
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - |
+    if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
+      echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    fi
 
 script:
   - docker build --build-arg $SPIGOT_VERSION -t spigot .
 
 after_success:
-  - ./docker-push.sh
+  # Upload the build
+  - |
+    if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
+      ./docker-push.sh
+    fi

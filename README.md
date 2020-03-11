@@ -1,7 +1,7 @@
 # docker-spigot
 Use the Minecraft Spigot server as a Docker container
 
-Docker | Travis (master) | Travis (develop)
+[Docker](https://hub.docker.com/repository/docker/d3strukt0r/spigot) | [Travis (master)](https://travis-ci.com/github/D3strukt0r/docker-spigot) | [Travis (develop)](https://travis-ci.com/github/D3strukt0r/docker-spigot)
 --- | --- | ---
 ![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)<br />![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop)
 
