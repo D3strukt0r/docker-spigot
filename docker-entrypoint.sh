@@ -19,4 +19,4 @@ JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
 echo -e "\e[1A[ \e[32mOK\e[39m ]"
 
 # Start the main application
-java "$JAVA_OPTIONS" -jar /app/spigot.jar --nogui "$@"
+java $JAVA_OPTIONS -jar /app/spigot.jar --nogui "$@"
