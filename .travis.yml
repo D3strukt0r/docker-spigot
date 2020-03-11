@@ -57,14 +57,7 @@ jobs:
     - if: branch = master
       env: SPIGOT_VERSION=1.8
 
-cache:
-  directories:
-    - $HOME/docker-images
-
 before_install:
-  # Load cache
-  - docker load -i $HOME/docker-images/images.tar || true
-
   # Make file executable (Not by default)
   - chmod +x docker-push.sh
 
@@ -76,10 +69,6 @@ before_install:
 
 script:
   - docker build --build-arg $SPIGOT_VERSION -t spigot .
-
-before_cache:
-  # Save cache
-  - docker save -o $HOME/docker-images/images.tar $(docker images -a -q)
 
 after_success:
   # Upload the build
