@@ -100,6 +100,28 @@ server-port=25565
 
 If you need to add another port to your docker container, use `--expose` in your command.
 
+#### Environment Variables
+
+* `JAVA_MEMORY` - (Default: `512M`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte)
+
+  The Java memory heap size to specify to the JVM.
+
+* `JAVA_BASE_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+
+  Can be set to use a different initial heap size.
+
+* `JAVA_MAX_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+
+  Can be set to use a different max heap size.
+
+* `JAVA_OPTIONS` - (No default value) - Any `java` arguments
+
+  Additional -X options to pass to the JVM.
+
+* `EULA` - (Default: `false`) - `false`, `true`
+
+  Accept EULA before Spigot asks for it, for a smooth startup.
+
 #### Volumes
 
 * `/data` - (Optional)
@@ -108,7 +130,6 @@ Here go all data files, like: configs, plugins, logs, icons
 
 ## Built With
 
-* [Java](https://www.java.com/de/) - Programming Language
 * [OpenJDK](https://hub.docker.com/_/openjdk) - The Java conatainer in Docker
 * [BungeeCord](https://ci.md-5.net/job/BungeeCord/) - The main software
 * [Travis CI](https://travis-ci.com/) - Automatic CI (Testing) / CD (Deployment)
