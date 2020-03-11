@@ -30,10 +30,6 @@ COPY --from=build /app/spigot.jar /app/spigot.jar
 
 VOLUME ["/data"]
 
-ENV JAVA_BASE_MEMORY=512M
-ENV JAVA_MAX_MEMORY=512M
-ENV EULA=false
-
 EXPOSE 25565
 
 WORKDIR /data

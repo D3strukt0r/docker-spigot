@@ -102,13 +102,21 @@ If you need to add another port to your docker container, use `--expose` in your
 
 #### Environment Variables
 
-* `JAVA_BASE_MEMORY` - (Default: `512M`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+* `JAVA_MEMORY` - (Default: `512M`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte)
+
+  The Java memory heap size to specify to the JVM.
+
+* `JAVA_BASE_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
 
   Can be set to use a different initial heap size.
 
-* `JAVA_MAX_MEMORY` - (Default: `512M`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+* `JAVA_MAX_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
 
   Can be set to use a different max heap size.
+
+* `JAVA_OPTIONS` - (No default value) - Any `java` arguments
+
+  Additional -X options to pass to the JVM.
 
 * `EULA` - (Default: `false`) - `false`, `true`
 
