@@ -39,10 +39,16 @@ before_install:
   - chmod +x docker-push.sh
 
   # Login to make sure we have access to private dockers
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - |
+    if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
+      echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    fi
 
 script:
   - docker build --build-arg $SPIGOT_VERSION -t spigot .
 
 after_success:
-  - ./docker-push.sh
+  - |
+    if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
+      ./docker-push.sh
+    fi
