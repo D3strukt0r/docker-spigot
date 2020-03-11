@@ -36,8 +36,8 @@ ENV JAVA_MAX_MEMORY=512M
 EXPOSE 25565
 
 WORKDIR /data
-COPY docker-entrypoint.sh /usr/local/bin/
 
+COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["docker-entrypoint.sh"]
