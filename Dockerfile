@@ -37,4 +37,7 @@ EXPOSE 25565
 
 WORKDIR /data
 COPY docker-entrypoint.sh /usr/local/bin/
-ENTRYPOINT ["docker-entrypoint.sh"]
+
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
