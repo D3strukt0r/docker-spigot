@@ -100,6 +100,20 @@ server-port=25565
 
 If you need to add another port to your docker container, use `--expose` in your command.
 
+#### Environment Variables
+
+* `JAVA_BASE_MEMORY` - (Default: `512M`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+
+  Can be set to use a different initial heap size.
+
+* `JAVA_MAX_MEMORY` - (Default: `512M`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+
+  Can be set to use a different max heap size.
+
+* `EULA` - (Default: `false`) - `false`, `true`
+
+  Accept EULA before Spigot asks for it, for a smooth startup.
+
 #### Volumes
 
 * `/data` - (Optional)
