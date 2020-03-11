@@ -122,7 +122,6 @@ Here go all data files, like: configs, plugins, logs, icons
 
 ## Built With
 
-* [Java](https://www.java.com/de/) - Programming Language
 * [OpenJDK](https://hub.docker.com/_/openjdk) - The Java conatainer in Docker
 * [BungeeCord](https://ci.md-5.net/job/BungeeCord/) - The main software
 * [Travis CI](https://travis-ci.com/) - Automatic CI (Testing) / CD (Deployment)
