@@ -30,8 +30,6 @@ COPY --from=build /app/spigot.jar /app/spigot.jar
 
 VOLUME ["/data"]
 
-EXPOSE 25565
-
 WORKDIR /data
 
 COPY docker-entrypoint.sh /usr/local/bin/
