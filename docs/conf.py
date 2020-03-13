@@ -20,7 +20,6 @@ project = 'docker-spigot'
 copyright = '2020, Manuele Vaccari'
 author = 'Manuele Vaccari'
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -37,6 +36,8 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+# Set master file
+master_doc = 'index'
 
 # -- Options for HTML output -------------------------------------------------
 
