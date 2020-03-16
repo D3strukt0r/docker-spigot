@@ -18,5 +18,12 @@ echo "[    ] Setting initial memory to ${JAVA_BASE_MEMORY:=${JAVA_MEMORY:=512M}}
 JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
 echo -e "\e[1A[ \e[32mOK\e[39m ]"
 
+# Console buffers
+console_input="/data/input.buffer"
+console_output="/data/output.buffer"
+# Clear console buffers
+> $console_input
+> $console_output
+
 # Start the main application
-java $JAVA_OPTIONS -jar /app/spigot.jar --nogui "$@"
+tail -f $console_input | { java $JAVA_OPTIONS -jar /app/spigot.jar --nogui "$@" ; }
