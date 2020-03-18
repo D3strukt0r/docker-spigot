@@ -31,4 +31,3 @@ or to start detached (in the background):
     docker-compose up -d
 
 Also here you could apply what you learned in the previous section about "screen".
-

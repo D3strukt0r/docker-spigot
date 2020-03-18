@@ -1,9 +1,35 @@
 # docker-spigot
+
 Use the Minecraft Spigot server as a Docker container
 
-[Docker](https://hub.docker.com/repository/docker/d3strukt0r/spigot) | [Travis (master)](https://travis-ci.com/github/D3strukt0r/docker-spigot) | [Travis (develop)](https://travis-ci.com/github/D3strukt0r/docker-spigot) | [Docs (master)](https://docker-spigot-docs.manuele-vaccari.ch/)
+**Project**
+[Docker][docker] | [License][license]
+--- | ---
+![Docker Stars][docker-stars-icon]<br />![Docker Pulls][docker-pulls-icon] | ![License][license-icon]
+
+**master**-branch (alias stable, latest)
+[Travis][travis] | [Docs][rtfd]
+--- | ---
+![Build status][travis-master-icon] | ![Docs build status][rtfd-master-icon]
+
+**develop**-branch (alias nightly)
+
+[Travis][travis] | [Docs][rtfd]
 --- | --- | --- | ---
-![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)<br />![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop) | ![Read the Docs (version)](https://img.shields.io/readthedocs/docker-spigot/master)
+![Build status][travis-develop-icon] | ![Docs build status][rtfd-develop-icon]
+
+[license]: https://github.com/D3strukt0r/docker-spigot/blob/master/LICENSE.txt
+[docker]: https://hub.docker.com/repository/docker/d3strukt0r/spigot
+[travis]: https://travis-ci.com/github/D3strukt0r/docker-spigot
+[docker-stars-icon]: https://img.shields.io/docker/stars/d3strukt0r/spigot.svg
+[rtfd]: https://docker-spigot-docs.manuele-vaccari.ch/
+
+[license-icon]: https://img.shields.io/github/license/d3strukt0r/docker-spigot
+[docker-pulls-icon]: https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg
+[travis-master-icon]: https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master
+[travis-develop-icon]: https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop
+[rtfd-master-icon]: https://img.shields.io/readthedocs/docker-spigot/master
+[rtfd-develop-icon]: https://img.shields.io/readthedocs/docker-spigot/develop
 
 ## Getting Started
 
@@ -108,11 +134,11 @@ If you need to add another port to your docker container, use `-p xxxxx:xxxxx` i
 
   The Java memory heap size to specify to the JVM.
 
-* `JAVA_BASE_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+* `JAVA_BASE_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte)
 
   Can be set to use a different initial heap size.
 
-* `JAVA_MAX_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
+* `JAVA_MAX_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte)
 
   Can be set to use a different max heap size.
 
