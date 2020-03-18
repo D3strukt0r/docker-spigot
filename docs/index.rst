@@ -1,20 +1,40 @@
-.. docker-spigot documentation master file, created by
-   sphinx-quickstart on Thu Mar 12 23:07:25 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: First Steps
 
-Welcome to docker-spigot's documentation!
-=========================================
+   pages/first-steps/requirements
+   pages/first-steps/first-server
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :hidden:
+   :caption: Getting Started
 
+   pages/getting-started/docker-cli
+   pages/getting-started/docker-compose
+   pages/getting-started/arguments
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: About docker-spigot
+
+   pages/about/story
+   pages/about/faq
+   pages/about/changelog
+   pages/about/contributing
+   pages/about/channels
+   pages/about/code-of-conduct
+   pages/about/sponsors
+
+=========================================
+Welcome to docker-spigot's documentation!
+=========================================
 
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
