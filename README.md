@@ -15,7 +15,7 @@ Use the Minecraft Spigot server as a Docker container
 **develop**-branch (alias nightly)
 
 [Travis][travis] | [Docs][rtfd]
---- | --- | --- | ---
+--- | ---
 ![Build status][travis-develop-icon] | ![Docs build status][rtfd-develop-icon]
 
 [license]: https://github.com/D3strukt0r/docker-spigot/blob/master/LICENSE.txt
