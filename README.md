@@ -1,21 +1,23 @@
 # docker-spigot
 Use the Minecraft Spigot server as a Docker container
 
-[Docker](https://hub.docker.com/repository/docker/d3strukt0r/spigot) | [Travis (master)](https://travis-ci.com/github/D3strukt0r/docker-spigot) | [Travis (develop)](https://travis-ci.com/github/D3strukt0r/docker-spigot)
---- | --- | ---
-![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)<br />![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop)
+[Docker](https://hub.docker.com/repository/docker/d3strukt0r/spigot) | [Travis (master)](https://travis-ci.com/github/D3strukt0r/docker-spigot) | [Travis (develop)](https://travis-ci.com/github/D3strukt0r/docker-spigot) | [Docs (master)](https://docker-spigot-docs.manuele-vaccari.ch/)
+--- | --- | --- | ---
+![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)<br />![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop) | ![Read the Docs (version)](https://img.shields.io/readthedocs/docker-spigot/master)
 
 ## Getting Started
 
 These instructions will cover usage information and for the docker container
 
+For more in-depth docs, please visit the [Docs](https://docker-spigot-docs.manuele-vaccari.ch) page
+
 ### Prerequisities
 
 In order to run this container you'll need docker installed.
 
-*   [Windows](https://docs.docker.com/windows/started)
-*   [OS X](https://docs.docker.com/mac/started/)
-*   [Linux](https://docs.docker.com/linux/started/)
+* [Windows](https://docs.docker.com/windows/started)
+* [OS X](https://docs.docker.com/mac/started/)
+* [Linux](https://docs.docker.com/linux/started/)
 
 ### Usage
 
@@ -98,7 +100,7 @@ server-port=25565
 
 **Hint**
 
-If you need to add another port to your docker container, use `--expose` in your command.
+If you need to add another port to your docker container, use `-p xxxxx:xxxxx` in your command.
 
 #### Environment Variables
 

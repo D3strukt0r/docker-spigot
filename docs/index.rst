@@ -3,7 +3,7 @@
    :hidden:
    :caption: First Steps
 
-   pages/first-steps/requirements
+   pages/first-steps/prerequisities
    pages/first-steps/first-server
 
 .. toctree::
