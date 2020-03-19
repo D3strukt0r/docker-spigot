@@ -48,6 +48,7 @@ In order to run this container you'll need docker installed.
 ### Usage
 
 #### Docker CLI
+
 ```shell script
 docker run -it \
            -p 25565:25565 \
@@ -58,9 +59,10 @@ docker run -it \
 ```
 
 #### Docker CLI (detached)
+
 ```shell script
 docker run -d \
-           -p 25565:25577 \
+           -p 25565:25565 \
            -v $(pwd)/data:/data \
            -e JAVA_MAX_MEMORY=1G \
            -e EULA=true \
@@ -68,14 +70,14 @@ docker run -d \
            d3strukt0r/spigot
 ```
 
-#### Docker CLI (with `screen`)
+However there is no way to attach back to it, so instead use a library in linux which is known as "screen" and shown in the next section.
 
-However there is no way to attach back to it, so instead use a library in linux which is known as "screen":
+#### Docker CLI (with `screen`)
 
 ```shell script
 screen -d -m -S "spigot" \
   docker run -it \
-             -p 25565:25577 \
+             -p 25565:25565 \
              -v $(pwd)/data:/data \
              -e JAVA_MAX_MEMORY=1G \
              -e EULA=true \
@@ -98,12 +100,12 @@ services:
   spigot:
     image: d3strukt0r/spigot
     ports:
-      - 25565:25577
+      - 25565:25565
     volumes:
       - ./data:/data
     environment:
-      - JAVA_BASE_MEMORY=512M
       - JAVA_MAX_MEMORY=1G
+      - EULA=true
 ```
 
 And then use `docker-compose up` or `docker-compose up -d` for detached. Again using the experience with linux's `screen` library
@@ -122,7 +124,7 @@ If you need to add another port to your docker container, use `-p xxxxx:xxxxx` i
 ## Built With
 
 * [OpenJDK](https://hub.docker.com/_/openjdk) - The Java conatainer in Docker
-* [BungeeCord](https://ci.md-5.net/job/BungeeCord/) - The main software
+* [Spigot](https://www.spigotmc.org/wiki/spigot/) - The main software
 * [Travis CI](https://travis-ci.com/) - Automatic CI (Testing) / CD (Deployment)
 * [Docker](https://www.docker.com/) - Building a Container for the Server
 
