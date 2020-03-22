@@ -17,7 +17,7 @@ elif [ "$TRAVIS_BRANCH" == "develop" ]; then
     fi
 else
     echo "Skipping deployment because it's neither master nor develop"
-    exit 0;
+    exit 0
 fi
 
 # Upload to Docker Hub

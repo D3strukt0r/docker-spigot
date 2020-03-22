@@ -81,7 +81,7 @@ echo -e "\e[1A[ \e[32mOK\e[39m ]"
 # Console buffers
 _console_input="/app/input.buffer"
 # Clear console buffers
-true > $_console_input
+true >$_console_input
 
 # Start the main application
 echo "[    ] Starting Minecraft server..."
