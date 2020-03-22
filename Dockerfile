@@ -28,7 +28,7 @@ FROM openjdk:8-jre-slim
 
 COPY --from=build /app/spigot.jar /app/spigot.jar
 
-COPY src/console /usr/local/bin/
+COPY src/minecraft-console.sh /usr/local/bin/console
 RUN chmod 755 /usr/local/bin/console
 
 COPY src/docker-entrypoint.sh /usr/local/bin/
