@@ -1,22 +1,30 @@
 #!/bin/bash
 
+# Gets the settings value inside a .properties file containing key=value elements.
+# getProperties <filename> <property>
+getProperties() {
+    local _result
+    _result=$(grep -Po "(?<=^$2=)\w*$" "$1" 2>/dev/null)
+    echo "$_result"
+}
+
 # Changes the settings in a .properties file containing key=value elements.
 # setProperties <filename> <property> <value>
 setProperties() {
-    echo "[    ] Change '$2' to '$3' inside '$1'"
+    grep -q "^$2\s*\=" "$1" 2>/dev/null
 
-    grep -q "^$2\s*\=" $1
-
-    if [ $? -ne 0 ] ; then
-        echo "$2=$3" >> $1
+    if [ $? -ne 0 ]; then
+        # Add new line
+        echo "$2=$3" >>"$1" 2>/dev/null
     else
-        sed -i "/^$2\s*=/ c $2=$3" $1
+        # Overwrite a line
+        sed -i "/^$2\s*=/ c $2=$3" "$1" 2>/dev/null
     fi
 
     if [ $? -eq 0 ]; then
-        echo -e "\e[1A[ \e[32mOK\e[39m ]"
+        echo "0" # OK
     else
-        echo -e "\e[3A[\e[31mFAIL\e[39m]\e[2B"
+        echo "1" # FAIL
     fi
 }
 
@@ -25,50 +33,65 @@ setProperties() {
 
 # Creates the eula.txt file with the default contents
 createEula() {
-    echo "[    ] Create eula.txt"
     if [ ! -s "eula.txt" ]; then
-
-        echo -e "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\n#$(date)\neula=false" > eula.txt
+        exec 3>&2
+        exec 2>/dev/null
+        echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)." >>eula.txt
+        echo "#$(date)" >>eula.txt
+        echo "eula=false" >>eula.txt
 
         if [ $? -eq 0 ]; then
-            echo -e "\e[1A[ \e[32mOK\e[39m ]"
+            echo "0" # OK
         else
-            echo -e "\e[2A[\e[31mFAIL\e[39m]\e[1B"
+            echo "1" # FAIL
         fi
+
+        exec 2>&3
     else
-        echo -e "\e[1A[\e[33mSKIP\e[39m]"
+        echo "2" # SKIP
     fi
 }
 
-isEulaAccepted() {
-    local OK=1
-    grep eula eula.txt | grep -q 'true' && OK=0
-    echo "$OK"
-}
+# Create eula.txt if it does not exist
+echo "[    ] Creating EULA..."
+_result=$(createEula)
+if [ "$_result" -eq 0 ]; then
+    echo -e "\e[1A[ \e[32mOK\e[39m ]"
+elif [ "$_result" -eq 1 ]; then
+    echo -e "\e[1A[\e[31mFAIL\e[39m]"
+    exit 1
+else
+    echo -e "\e[1A[\e[33mSKIP\e[39m]"
+fi
 
 # Make sure EULA can only be "true" or "false"
 if [ "$EULA" != "true" ]; then
     EULA="false"
 fi
 
-# Create eula.txt if it does not exist
-createEula
-
-# Set EULA to true if accepted
-if [ "$EULA" == "true" ]; then
-    setProperties eula.txt "eula" "true"
+# Set EULA parameter
+echo "[    ] Setting EULA to '$EULA'..."
+if [ "$(getProperties eula.txt eula)" != "$EULA" ]; then
+    _result=$(setProperties eula.txt "eula" "$EULA")
+    if [ "$_result" -eq 0 ]; then
+        echo -e "\e[1A[ \e[32mOK\e[39m ]"
+    elif [ "$_result" -eq 1 ]; then
+        echo -e "\e[1A[\e[31mFAIL\e[39m]"
+        exit 1
+    fi
+else
+    echo -e "\e[1A[\e[33mSKIP\e[39m]"
 fi
 
 # If EULA not accepted just stop
-echo "[    ] Checking if EULA was accepted"
-if [ $(isEulaAccepted) -eq 1 ]; then
-    echo -e "\e[2A[\e[31mFAIL\e[39m]\e[1B"
-    echo "======================================================================================="
+echo "[    ] Checking if EULA accepted..."
+if [ "$(getProperties eula.txt eula)" != "true" ]; then
+    echo -e "\e[1A[\e[31mFAIL\e[39m]"
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =
     echo "You need to agree to the EULA in order to run the server. Go to eula.txt for more info."
-	echo "Either set 'eula=true' in 'eula.txt'"
-	echo "or run with '-e EULA=true'"
-    echo "======================================================================================="
-	exit 1
+    echo "Either set 'eula=true' in 'eula.txt' or run with '-e EULA=true'"
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =
+    exit 1
 else
     echo -e "\e[1A[ \e[32mOK\e[39m ]"
 fi
