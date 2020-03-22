@@ -1,66 +1,88 @@
 # docker-spigot
+
 Use the Minecraft Spigot server as a Docker container
 
-[Docker](https://hub.docker.com/repository/docker/d3strukt0r/spigot) | [Travis (master)](https://travis-ci.com/github/D3strukt0r/docker-spigot) | [Travis (develop)](https://travis-ci.com/github/D3strukt0r/docker-spigot)
---- | --- | ---
-![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)<br />![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master) | ![Travis (.com) branch](https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop)
+**Project**
+[Docker][docker] | [License][license]
+--- | ---
+![Docker Stars][docker-stars-icon]<br />![Docker Pulls][docker-pulls-icon] | ![License][license-icon]
+
+**master**-branch (alias stable, latest)
+[Travis][travis] | [Docs][rtfd]
+--- | ---
+![Build status][travis-master-icon] | ![Docs build status][rtfd-master-icon]
+
+**develop**-branch (alias nightly)
+
+[Travis][travis] | [Docs][rtfd]
+--- | ---
+![Build status][travis-develop-icon] | ![Docs build status][rtfd-develop-icon]
+
+[license]: https://github.com/D3strukt0r/docker-spigot/blob/master/LICENSE.txt
+[docker]: https://hub.docker.com/repository/docker/d3strukt0r/spigot
+[travis]: https://travis-ci.com/github/D3strukt0r/docker-spigot
+[docker-stars-icon]: https://img.shields.io/docker/stars/d3strukt0r/spigot.svg
+[rtfd]: https://docker-spigot-docs.manuele-vaccari.ch/
+
+[license-icon]: https://img.shields.io/github/license/d3strukt0r/docker-spigot
+[docker-pulls-icon]: https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg
+[travis-master-icon]: https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master
+[travis-develop-icon]: https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop
+[rtfd-master-icon]: https://img.shields.io/readthedocs/docker-spigot/master
+[rtfd-develop-icon]: https://img.shields.io/readthedocs/docker-spigot/develop
 
 ## Getting Started
 
 These instructions will cover usage information and for the docker container
 
+For more in-depth docs, please visit the [Docs](https://docker-spigot-docs.manuele-vaccari.ch) page
+
 ### Prerequisities
 
 In order to run this container you'll need docker installed.
 
-*   [Windows](https://docs.docker.com/windows/started)
-*   [OS X](https://docs.docker.com/mac/started/)
-*   [Linux](https://docs.docker.com/linux/started/)
+* [Windows](https://docs.docker.com/docker-for-windows/install/)
+* [OS X](https://docs.docker.com/docker-for-mac/install/)
+* [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/)
 
 ### Usage
 
 #### Docker CLI
 
-To start the server use the following command:
 ```shell script
-docker run -i -t -p 25565:25565 -v $(pwd)/data:/data -e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G d3strukt0r/spigot
+docker run -it \
+           -p 25565:25565 \
+           -v $(pwd)/data:/data \
+           -e JAVA_MAX_MEMORY=1G \
+           -e EULA=true \
+           d3strukt0r/spigot
 ```
 
-##### `-i -t`
-To be able to type commands directly in your terminal `-i -t` or `-it`. To detach from the terminal use `Ctrl + P + Q`. To start it detached from the beginning use `-d`
-
-##### `-p 25565:25565`
-Spigot uses `25565` as a default port, however, if you use Spigot or a similar app, change the port to something else (`-p 25566:25565`).
-
-##### `-v $(pwd)/data:/data`
-It is not necessary to add any volumes, but if you do add it (`-v <host_dir>:/data`), your data will be saved. If you don't add it, it is impossible to change any config file, or add plugins.
-
-##### `d3strukt0r/spigot`
-This is the repository on Docker Hub.
-
-##### `-e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G`
-To add arguments, like memory limit, simply add them after the repo inside the command. Or when using a `docker-compose.yml` file, put it inside `environment: ...`.
+#### Docker CLI (detached)
 
 ```shell script
-docker run -d -p 25565:25577 -v $(pwd)/data:/data -e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G --name spigot d3strukt0r/spigot
+docker run -d \
+           -p 25565:25565 \
+           -v $(pwd)/data:/data \
+           -e JAVA_MAX_MEMORY=1G \
+           -e EULA=true \
+           --name spigot \
+           d3strukt0r/spigot
 ```
 
-##### `-d`
-Run detached (in the background)
-
-##### `--name spigot`
-Give this container a name for easier reference later on.
+However there is no way to attach back to it, so instead use a library in linux which is known as "screen" and shown in the next section.
 
 #### Docker CLI (with `screen`)
 
-However there is no way to attach back to it, so instead use a library in linux which is known as "screen":
-
 ```shell script
-screen -d -m -S "spigot" docker run -i -t -p 25565:25577 -v $(pwd)/data:/data -e JAVA_BASE_MEMORY=512M -e JAVA_MAX_MEMORY=1G d3strukt0r/spigot
+screen -d -m -S "spigot" \
+  docker run -it \
+             -p 25565:25565 \
+             -v $(pwd)/data:/data \
+             -e JAVA_MAX_MEMORY=1G \
+             -e EULA=true \
+             d3strukt0r/spigot
 ```
-
-##### `screen -d -m -S "spigot"`
-Creates like a window in the terminal which you can easily leave and enter.
 
 You can detach from the window using `CTRL` + `a` and then `d`.
 
@@ -78,12 +100,12 @@ services:
   spigot:
     image: d3strukt0r/spigot
     ports:
-      - 25565:25577
+      - 25565:25565
     volumes:
       - ./data:/data
     environment:
-      - JAVA_BASE_MEMORY=512M
       - JAVA_MAX_MEMORY=1G
+      - EULA=true
 ```
 
 And then use `docker-compose up` or `docker-compose up -d` for detached. Again using the experience with linux's `screen` library
@@ -93,45 +115,16 @@ And then use `docker-compose up` or `docker-compose up -d` for detached. Again u
 When configuring the server you **HAVE TO** use following option in your `server.properties` file
 ```properties
 server-ip=0.0.0.0
-server-port=25565
 ```
 
 **Hint**
 
-If you need to add another port to your docker container, use `--expose` in your command.
-
-#### Environment Variables
-
-* `JAVA_MEMORY` - (Default: `512M`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte)
-
-  The Java memory heap size to specify to the JVM.
-
-* `JAVA_BASE_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
-
-  Can be set to use a different initial heap size.
-
-* `JAVA_MAX_MEMORY` - (Default: `${JAVA_MEMORY}`) - Any integer followed by `K` (Kilobyte), `M` (Megabyte) or `G` (Gigabyte) 
-
-  Can be set to use a different max heap size.
-
-* `JAVA_OPTIONS` - (No default value) - Any `java` arguments
-
-  Additional -X options to pass to the JVM.
-
-* `EULA` - (Default: `false`) - `false`, `true`
-
-  Accept EULA before Spigot asks for it, for a smooth startup.
-
-#### Volumes
-
-* `/data` - (Optional)
-
-Here go all data files, like: configs, plugins, logs, icons
+If you need to add another port to your docker container, use `-p xxxxx:xxxxx` in your command.
 
 ## Built With
 
 * [OpenJDK](https://hub.docker.com/_/openjdk) - The Java conatainer in Docker
-* [BungeeCord](https://ci.md-5.net/job/BungeeCord/) - The main software
+* [Spigot](https://www.spigotmc.org/wiki/spigot/) - The main software
 * [Travis CI](https://travis-ci.com/) - Automatic CI (Testing) / CD (Deployment)
 * [Docker](https://www.docker.com/) - Building a Container for the Server
 
@@ -146,8 +139,7 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the
-[tags on this repository](https://github.com/D3strukt0r/docker-spigot/tags).
+There is no versioning in this project. Only the develop for nightly builds, and the master branch which builds latest and all minecraft versions.
 
 ## Authors
 
