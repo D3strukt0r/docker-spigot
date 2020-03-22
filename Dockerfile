@@ -28,14 +28,13 @@ FROM openjdk:8-jre-slim
 
 COPY --from=build /app/spigot.jar /app/spigot.jar
 
+COPY src/console /usr/local/bin/
+RUN chmod 755 /usr/local/bin/console
+
+COPY src/docker-entrypoint.sh /usr/local/bin/
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
+
 VOLUME ["/data"]
 
 WORKDIR /data
-
-COPY commands/console /usr/local/bin/
-RUN chmod 755 /usr/local/bin/console
-
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
-
 ENTRYPOINT ["docker-entrypoint.sh"]
