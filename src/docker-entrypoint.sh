@@ -19,7 +19,7 @@ JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
 echo -e "\e[1A[ \e[32mOK\e[39m ]"
 
 # Console buffers
-console_input="/data/input.buffer"
+console_input="/app/input.buffer"
 # Clear console buffers
 > $console_input
 
