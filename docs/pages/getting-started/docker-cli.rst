@@ -73,7 +73,7 @@ the required amount of RAM you will need, please consult Google.
 Minecraft required you to manually accept the EULA, do this by simply adding this environment
 variable.
 
---name spigot
+--name spigot_1
 --------------------------
 Give the container a name, for easier referencing later on.
 
@@ -105,7 +105,6 @@ versions check the `Tags on Docker Hub`_.
    this.
    Then enter :code:`screen -r spigot` or :code:`screen -r 00000.pts-0.office` (or whatever was shown
    with :code:`screen -r`).
-
 
 Reading the logs
 ==========================
