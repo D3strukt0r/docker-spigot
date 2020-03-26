@@ -41,9 +41,11 @@ createEula() {
     if [ ! -s "eula.txt" ]; then
         exec 3>&2
         exec 2>/dev/null
-        echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)." >>eula.txt
-        echo "#$(date)" >>eula.txt
-        echo "eula=false" >>eula.txt
+        {
+            echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)."
+            echo "#$(date)"
+            echo "eula=false"
+        } >>eula.txt
 
         if [ $? -eq 0 ]; then
             echo "0" # OK
