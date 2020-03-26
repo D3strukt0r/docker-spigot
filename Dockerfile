@@ -26,7 +26,7 @@ RUN find -iname 'spigot-*.jar' -exec mv {} /app/spigot.jar \;
 
 FROM alpine:latest
 
-RUN apk add git openjdk8-jre python3 py-pip jq bash
+RUN apk add git openjdk8-jre python3 py-pip bash
 RUN pip install shyaml
 RUN pip install git+https://github.com/Gallore/yaml_cli
 
