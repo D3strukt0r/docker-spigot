@@ -52,9 +52,13 @@ getYaml() {
     exec 3>&2
     exec 2>/dev/null
 
-    local _result
-    _result=$(shyaml get-value "$2" < "$1")
-    echo "$_result"
+    if [ ! -s "$1" ]; then
+        echo ""
+    else
+        local _result
+        _result=$(shyaml get-value "$2" < "$1")
+        echo "$_result"
+    fi
 
     exec 2>&3
 }
@@ -68,7 +72,17 @@ setYaml() {
     exec 3>&2
     exec 2>/dev/null
 
-    yaml_cli -f "$1" "${@:2}"
+    if [ ! -f "$1" ]; then
+        touch "$1"
+
+        # Fixes file not found
+        sleep 0.5
+
+        yaml_cli -f "$1" --list-append "${@:2}"
+    else
+        yaml_cli -f "$1" "${@:2}"
+    fi
+
 
     if [ $? -eq 0 ]; then
         echo "0" # OK
@@ -84,6 +98,12 @@ createEula() {
     if [ ! -s "eula.txt" ]; then
         exec 3>&2
         exec 2>/dev/null
+
+        touch eula.txt
+
+        # Fixes file not found
+        sleep 0.5
+
         {
             echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)."
             echo "#$(date)"
