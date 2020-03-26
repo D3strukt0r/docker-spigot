@@ -1,13 +1,117 @@
 #!/bin/bash
 
-# Accept EULA if necessary
-echo "[    ] Accept Mojang's EULA"
-if [ "$EULA" == "true" ] && [ ! -s eula.txt ]; then
-    echo -e "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\n#$(date)\neula=true" > eula.txt
-    if [ $? -eq 0 ]; then
-        echo -e "\e[1A[ \e[32mOK\e[39m ]"
+# Gets the settings value inside a .properties file containing key=value elements.
+# Authors: adorogensky <https://gist.github.com/marcelbirkner/9b133f800d7d3fc5d828#gistcomment-2855532>
+#
+# getProperties <filename> <property>
+getProperties() {
+    local _result
+    property=$(sed -n "/^[ tab]*$2[ tab]*/p" "$1")
+    if [[ $property =~ ^([ tab]*"$2"[ tab]*=)(.*) ]]; then
+        _result=${BASH_REMATCH[2]}
+    fi
+    echo "$_result"
+}
+
+# Changes the settings in a .properties file containing key=value elements.
+# setProperties <filename> <property> <value>
+setProperties() {
+    grep -q "^$2\s*\=" "$1" 2>/dev/null
+
+    if [ $? -ne 0 ]; then
+        # Add new line
+        echo "$2=$3" >>"$1" 2>/dev/null
     else
+        # Overwrite a line
+        sed -i "/^$2\s*=/ c $2=$3" "$1" 2>/dev/null
+    fi
+
+    if [ $? -eq 0 ]; then
+        echo "0" # OK
+    else
+        echo "1" # FAIL
+    fi
+}
+
+# TODO: Add function to change YAML configs
+# setYaml() {}
+
+# Creates the eula.txt file with the default contents
+createEula() {
+    if [ ! -s "eula.txt" ]; then
+        exec 3>&2
+        exec 2>/dev/null
+        {
+            echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)."
+            echo "#$(date)"
+            echo "eula=false"
+        } >>eula.txt
+
+        if [ $? -eq 0 ]; then
+            echo "0" # OK
+        else
+            echo "1" # FAIL
+        fi
+
+        exec 2>&3
+    else
+        echo "2" # SKIP
+    fi
+}
+
+# Create eula.txt if it does not exist
+echo "[    ] Creating EULA..."
+_result=$(createEula)
+if [ "$_result" -eq 0 ]; then
+    echo -e "\e[1A[ \e[32mOK\e[39m ]"
+elif [ "$_result" -eq 1 ]; then
+    echo -e "\e[1A[\e[31mFAIL\e[39m]"
+    exit 1
+else
+    echo -e "\e[1A[\e[33mSKIP\e[39m]"
+fi
+
+# Make sure EULA can only be "true" or "false"
+if [ "$EULA" != "true" ]; then
+    EULA="false"
+fi
+
+# Set EULA parameter
+echo "[    ] Setting EULA to '$EULA'..."
+if [ "$(getProperties eula.txt eula)" != "$EULA" ]; then
+    _result=$(setProperties eula.txt "eula" "$EULA")
+    if [ "$_result" -eq 0 ]; then
+        echo -e "\e[1A[ \e[32mOK\e[39m ]"
+    elif [ "$_result" -eq 1 ]; then
         echo -e "\e[1A[\e[31mFAIL\e[39m]"
+        exit 1
+    fi
+else
+    echo -e "\e[1A[\e[33mSKIP\e[39m]"
+fi
+
+# If EULA not accepted just stop
+echo "[    ] Checking if EULA accepted..."
+if [ "$(getProperties eula.txt eula)" != "true" ]; then
+    echo -e "\e[1A[\e[31mFAIL\e[39m]"
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =
+    echo "You need to agree to the EULA in order to run the server. Go to eula.txt for more info."
+    echo "Either set 'eula=true' in 'eula.txt' or run with '-e EULA=true'"
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =
+    exit 1
+else
+    echo -e "\e[1A[ \e[32mOK\e[39m ]"
+fi
+
+# IP has to be set to 0.0.0.0 or empty
+echo "[    ] Setting 'server-ip' to '0.0.0.0'..."
+if [ "$(getProperties server.properties server-ip)" != "0.0.0.0" ]; then
+    _result=$(setProperties server.properties server-ip 0.0.0.0)
+    if [ "$_result" -eq 0 ]; then
+        echo -e "\e[1A[ \e[32mOK\e[39m ]"
+    elif [ "$_result" -eq 1 ]; then
+        echo -e "\e[1A[\e[31mFAIL\e[39m]"
+        exit 1
     fi
 else
     echo -e "\e[1A[\e[33mSKIP\e[39m]"
@@ -19,9 +123,10 @@ JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
 echo -e "\e[1A[ \e[32mOK\e[39m ]"
 
 # Console buffers
-console_input="/data/input.buffer"
+_console_input="/app/input.buffer"
 # Clear console buffers
-> $console_input
+true >$_console_input
 
 # Start the main application
-tail -f $console_input | tee /dev/console | java $JAVA_OPTIONS -jar /app/spigot.jar --nogui "$@"
+echo "[    ] Starting Minecraft server..."
+tail -f $_console_input | tee /dev/console | java $JAVA_OPTIONS -jar /app/spigot.jar --nogui "$@"

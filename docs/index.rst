@@ -4,7 +4,6 @@
    :caption: First Steps
 
    pages/first-steps/prerequisities
-   pages/first-steps/first-server
 
 .. toctree::
    :maxdepth: 2

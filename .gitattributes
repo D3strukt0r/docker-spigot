@@ -1,0 +1,2 @@
+# Required for Docker
+*.sh eol=lf
