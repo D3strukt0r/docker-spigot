@@ -1,10 +1,15 @@
 #!/bin/bash
 
 # Gets the settings value inside a .properties file containing key=value elements.
+# Authors: adorogensky <https://gist.github.com/marcelbirkner/9b133f800d7d3fc5d828#gistcomment-2855532>
+#
 # getProperties <filename> <property>
 getProperties() {
     local _result
-    _result=$(grep -Po "(?<=^$2=)\w*$" "$1" 2>/dev/null)
+    property=$(sed -n "/^[ tab]*$2[ tab]*/p" "$1")
+    if [[ $property =~ ^([ tab]*"$2"[ tab]*=)(.*) ]]; then
+        _result=${BASH_REMATCH[2]}
+    fi
     echo "$_result"
 }
 
