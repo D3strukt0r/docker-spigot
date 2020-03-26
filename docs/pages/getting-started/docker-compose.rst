@@ -17,6 +17,7 @@ Create a file called :code:`docker-compose.yml` under e. g. :code:`/opt/mc-serve
           - ./data:/data
         environment:
           - JAVA_MAX_MEMORY=1G
+          - EULA=true
 
 You can then run:
 
