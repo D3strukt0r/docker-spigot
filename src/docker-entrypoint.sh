@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Starting entrypoint..."
-
 # Gets the settings value inside a .properties file containing key=value elements.
 # Authors: adorogensky <https://gist.github.com/marcelbirkner/9b133f800d7d3fc5d828#gistcomment-2855532>
 #
