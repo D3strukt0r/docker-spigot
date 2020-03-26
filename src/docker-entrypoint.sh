@@ -101,6 +101,20 @@ else
     echo -e "\e[1A[ \e[32mOK\e[39m ]"
 fi
 
+# IP has to be set to 0.0.0.0 or empty
+echo "[    ] Setting 'server-ip' to '0.0.0.0'..."
+if [ "$(getProperties server.properties server-ip)" != "0.0.0.0" ]; then
+    _result=$(setProperties server.properties server-ip 0.0.0.0)
+    if [ "$_result" -eq 0 ]; then
+        echo -e "\e[1A[ \e[32mOK\e[39m ]"
+    elif [ "$_result" -eq 1 ]; then
+        echo -e "\e[1A[\e[31mFAIL\e[39m]"
+        exit 1
+    fi
+else
+    echo -e "\e[1A[\e[33mSKIP\e[39m]"
+fi
+
 # Set variables for java runtime
 echo "[    ] Setting initial memory to ${JAVA_BASE_MEMORY:=${JAVA_MEMORY:=512M}} and max to ${JAVA_MAX_MEMORY:=${JAVA_MEMORY}}"
 JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
