@@ -59,7 +59,7 @@ jobs:
 
 before_install:
   # Make file executable (Not by default)
-  - chmod 755 ./src/travis-push-to-docker.sh
+  - chmod 755 ./bin/travis-push-to-docker.sh
 
   # Login to make sure we have access to private dockers
   - |
@@ -74,5 +74,5 @@ after_success:
   # Upload the build
   - |
     if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
-      ./src/travis-push-to-docker.sh
+      ./bin/travis-push-to-docker.sh
     fi
