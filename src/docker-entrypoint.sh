@@ -1,47 +1,97 @@
 #!/bin/bash
 
+# Prevents unwanted error messages to be diplayed to the console
+#
+# disableErrorMesssages
+disableErrorMesssages() {
+    exec 3>&2
+    exec 2>/dev/null
+}
+
+# Enables regular error messages
+#
+# enableErrorMessages
+enableErrorMessages() {
+    exec 2>&3
+}
+
+# Creates a file
+#
+# createFile <file_location>
+createFile() {
+    disableErrorMesssages
+    touch "$1"
+
+    # Fixes file not found
+    # TODO: Find a better (more efficient) solution
+    sleep 0.5
+
+    enableErrorMessages
+}
+
 # Gets the settings value inside a .properties file containing key=value elements.
-# Authors: adorogensky <https://gist.github.com/marcelbirkner/9b133f800d7d3fc5d828#gistcomment-2855532>
 #
 # getProperties <filename> <key>
 getProperties() {
-    exec 3>&2
-    exec 2>/dev/null
-
-    local _result
-    property=$(sed -n "/^[ tab]*$2[ tab]*/p" "$1")
-    if [[ $property =~ ^([ tab]*"$2"[ tab]*=)(.*) ]]; then
-        _result=${BASH_REMATCH[2]}
+    disableErrorMesssages
+    if [ -s "$1" ]; then
+        # https://gist.github.com/marcelbirkner/9b133f800d7d3fc5d828#gistcomment-2855532
+        property=$(sed -n "/^[ tab]*$2[ tab]*/p" "$1")
+        if [[ $property =~ ^([ tab]*"$2"[ tab]*=)(.*) ]]; then
+            echo "${BASH_REMATCH[2]}"
+        fi
     fi
-    echo "$_result"
-
-    exec 2>&3
+    enableErrorMessages
 }
 
 # Changes the settings in a .properties file containing key=value elements.
 #
 # setProperties <filename> <key> <value>
 setProperties() {
-    exec 3>&2
-    exec 2>/dev/null
+    disableErrorMesssages
 
+    # Create the file if it doesn't exist yet
+    if [ ! -f "$1" ]; then
+        createFile "$1"
+    fi
+
+    # Check if the key exists
     grep -q "^$2\s*\=" "$1"
 
     if [ $? -ne 0 ]; then
-        # Add new line
+        # If it doesn't exist, add new line
         echo "$2=$3" >>"$1"
     else
-        # Overwrite a line
+        # Otherwise, overwrite the line
         sed -i "/^$2\s*=/ c $2=$3" "$1"
     fi
 
+    # Return state
     if [ $? -eq 0 ]; then
-        echo "0" # OK
+        return 0 # OK
     else
-        echo "1" # FAIL
+        return 1 # FAIL
     fi
+    enableErrorMessages
+}
 
-    exec 2>&3
+# Basically like setProperties, but checks if it is necessary to change something.
+#
+# updateProperties <filename> <key> <value>
+updateProperties() {
+    echo "[    ] Setting '$2' to '$3' inside '$1'..."
+    if [ "$(getProperties "$1" "$2")" != "$3" ]; then
+        setProperties "$1" "$2" "$3"
+        local _result=$?
+        if [ "$_result" -eq 0 ]; then
+            echo -e "\e[1A[ \e[32mOK\e[39m ]"
+        elif [ "$_result" -eq 1 ]; then
+            echo -e "\e[1A[\e[31mFAIL\e[39m]"
+            exit 1
+        fi
+    else
+        echo -e "\e[1A[\e[33mSKIP\e[39m]"
+    fi
 }
 
 # Reads the contents of a .yml file and finds the key's value
@@ -49,18 +99,11 @@ setProperties() {
 #
 # getYaml <filename> <key>
 getYaml() {
-    exec 3>&2
-    exec 2>/dev/null
-
-    if [ ! -s "$1" ]; then
-        echo ""
-    else
-        local _result
-        _result=$(shyaml get-value "$2" < "$1")
-        echo "$_result"
+    disableErrorMesssages
+    if [ -s "$1" ]; then
+        echo "$(shyaml get-value "$2" <"$1")"
     fi
-
-    exec 2>&3
+    enableErrorMessages
 }
 
 # Add function to change YAML configs
@@ -69,67 +112,66 @@ getYaml() {
 #
 # setYaml <filename> <processes...>
 setYaml() {
-    exec 3>&2
-    exec 2>/dev/null
+    disableErrorMesssages
 
+    # Create the file if it doesn't exist yet
     if [ ! -f "$1" ]; then
-        touch "$1"
+        createFile "$1"
 
-        # Fixes file not found
-        sleep 0.5
-
+        # If it doesn't exist, add new line
         yaml_cli -f "$1" --list-append "${@:2}"
     else
+        # Otherwise, overwrite the line
         yaml_cli -f "$1" "${@:2}"
     fi
 
+    # Return state
+    if [ $? -eq 0 ]; then
+        return 0 # OK
+    else
+        return 1 # FAIL
+    fi
+    enableErrorMessages
+}
+
+# Basically like setYaml, but checks if it is necessary to change something.
+#
+# updateYaml <filename> <key> <value> <processes...>
+updateYaml() {
+    echo "[    ] Setting '$2' to '$3' inside '$1'..."
+    if [ "$(getYaml "$1" "$2")" != "$3" ]; then
+        setProperties "$1" "$2" "${@:4}"
+        local _result=$?
+        if [ "$_result" -eq 0 ]; then
+            echo -e "\e[1A[ \e[32mOK\e[39m ]"
+        elif [ "$_result" -eq 1 ]; then
+            echo -e "\e[1A[\e[31mFAIL\e[39m]"
+            exit 1
+        fi
+    else
+        echo -e "\e[1A[\e[33mSKIP\e[39m]"
+    fi
+}
+
+# Create file if it doesn't exist yet
+echo "[    ] Creating EULA..."
+if [ ! -f eula.txt ]; then
+    createFile eula.txt
+fi
+# Add file contents, if empty
+if [ ! -s eula.txt ]; then
+    {
+        echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)."
+        echo "#$(date)"
+        echo "eula=false"
+    } >>eula.txt
 
     if [ $? -eq 0 ]; then
-        echo "0" # OK
+        echo -e "\e[1A[ \e[32mOK\e[39m ]"
     else
-        echo "1" # FAIL
+        echo -e "\e[1A[\e[31mFAIL\e[39m]"
+        exit 1
     fi
-
-    exec 2>&3
-}
-
-# Creates the eula.txt file with the default contents
-createEula() {
-    if [ ! -s "eula.txt" ]; then
-        exec 3>&2
-        exec 2>/dev/null
-
-        touch eula.txt
-
-        # Fixes file not found
-        sleep 0.5
-
-        {
-            echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)."
-            echo "#$(date)"
-            echo "eula=false"
-        } >>eula.txt
-
-        if [ $? -eq 0 ]; then
-            echo "0" # OK
-        else
-            echo "1" # FAIL
-        fi
-
-        exec 2>&3
-    else
-        echo "2" # SKIP
-    fi
-}
-
-# Create eula.txt if it does not exist
-echo "[    ] Creating EULA..."
-_result=$(createEula)
-if [ "$_result" -eq 0 ]; then
-    echo -e "\e[1A[ \e[32mOK\e[39m ]"
-elif [ "$_result" -eq 1 ]; then
-    echo -e "\e[1A[\e[31mFAIL\e[39m]"
-    exit 1
 else
     echo -e "\e[1A[\e[33mSKIP\e[39m]"
 fi
@@ -138,18 +180,7 @@ fi
 if [ "$EULA" != "true" ]; then
     EULA="false"
 fi
-echo "[    ] Setting EULA to '$EULA'..."
-if [ "$(getProperties eula.txt eula)" != "$EULA" ]; then
-    _result=$(setProperties eula.txt "eula" "$EULA")
-    if [ "$_result" -eq 0 ]; then
-        echo -e "\e[1A[ \e[32mOK\e[39m ]"
-    elif [ "$_result" -eq 1 ]; then
-        echo -e "\e[1A[\e[31mFAIL\e[39m]"
-        exit 1
-    fi
-else
-    echo -e "\e[1A[\e[33mSKIP\e[39m]"
-fi
+updateProperties eula.txt eula "$EULA"
 
 # If EULA not accepted just stop
 echo "[    ] Checking if EULA accepted..."
@@ -165,47 +196,16 @@ else
 fi
 
 # IP has to be set to 0.0.0.0 or empty
-echo "[    ] Setting 'server-ip' to '0.0.0.0' inside 'server.properties'..."
-if [ "$(getProperties server.properties server-ip)" != "0.0.0.0" ]; then
-    _result=$(setProperties server.properties server-ip 0.0.0.0)
-    if [ "$_result" -eq 0 ]; then
-        echo -e "\e[1A[ \e[32mOK\e[39m ]"
-    elif [ "$_result" -eq 1 ]; then
-        echo -e "\e[1A[\e[31mFAIL\e[39m]"
-        exit 1
-    fi
-else
-    echo -e "\e[1A[\e[33mSKIP\e[39m]"
-fi
+updateProperties server.properties server-ip 0.0.0.0
 
 # Checks if BungeeCord has to access this server
 if [ "$BUNGEECORD" != "true" ]; then
     BUNGEECORD="false"
 fi
-echo "[    ] Setting parameters, so that BungeeCord can access..."
-echo "[    ] Setting 'online-mode' to 'false' inside 'server.properties'..."
-if [ "$(getProperties server.properties online-mode)" != "false" ]; then
-    _result=$(setProperties server.properties online-mode false)
-    if [ "$_result" -eq 0 ]; then
-        echo -e "\e[1A[ \e[32mOK\e[39m ]"
-    elif [ "$_result" -eq 1 ]; then
-        echo -e "\e[1A[\e[31mFAIL\e[39m]"
-        exit 1
-    fi
-else
-    echo -e "\e[1A[\e[33mSKIP\e[39m]"
-fi
-echo "[    ] Setting 'settings.connection-throttle' to '-1' inside 'bukkit.yml'..."
-if [ "$(getYaml bukkit.yml settings.connection-throttle)" != "-1" ]; then
-    _result=$(setYaml bukkit.yml -n settings:connection-throttle -1)
-    if [ "$_result" -eq 0 ]; then
-        echo -e "\e[1A[ \e[32mOK\e[39m ]"
-    elif [ "$_result" -eq 1 ]; then
-        echo -e "\e[1A[\e[31mFAIL\e[39m]"
-        exit 1
-    fi
-else
-    echo -e "\e[1A[\e[33mSKIP\e[39m]"
+if [ "$BUNGEECORD" == "true" ]; then
+    echo "[....] Setting parameters, so that BungeeCord can access..."
+    updateProperties server.properties online-mode false
+    updateYaml bukkit.yml settings.connection-throttle -1 -n settings:connection-throttle -1
 fi
 
 # Set variables for java runtime
@@ -219,5 +219,5 @@ _console_input="/app/input.buffer"
 true >$_console_input
 
 # Start the main application
-echo "[    ] Starting Minecraft server..."
+echo "[....] Starting Minecraft server..."
 tail -f $_console_input | tee /dev/console | $(which java) $JAVA_OPTIONS -jar /app/spigot.jar --nogui "$@"
