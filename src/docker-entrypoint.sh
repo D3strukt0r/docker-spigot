@@ -101,7 +101,7 @@ updateProperties() {
 getYaml() {
     disableErrorMesssages
     if [ -s "$1" ]; then
-        echo "$(shyaml get-value "$2" <"$1")"
+        echo "$(yq ."$2" "$1")"
     fi
     enableErrorMessages
 }
@@ -110,19 +110,36 @@ getYaml() {
 # https://github.com/Gallore/yaml_cli
 # https://unix.stackexchange.com/questions/338781/is-it-possible-to-modify-a-yml-file-via-shell-script
 #
-# setYaml <filename> <processes...>
+# setYaml <filename> <key> <value>
 setYaml() {
     disableErrorMesssages
 
     # Create the file if it doesn't exist yet
     if [ ! -f "$1" ]; then
         createFile "$1"
+    fi
 
-        # If it doesn't exist, add new line
-        yaml_cli -f "$1" --list-append "${@:2}"
+    if [ ! -s "$2" ]; then
+        # Fixes "Error: argument of type 'NoneType' is not iterable"
+        echo "help-the-parser: null" >"$1"
+    fi
+
+    # Use "yaml_cli" to add the key if it doesn't exist yet, otherwise use "yq" to overwrite
+    if [ "$(getYaml "$1" "$2")" == "" ]; then
+        local _new_key="${2//[.]/:}"
+        _new_key="${_new_key//\"/}"
+
+        # https://stackoverflow.com/questions/806906/how-do-i-test-if-a-variable-is-a-number-in-bash
+        if [[ $3 =~ ^[+-]?[0-9]+([.][0-9]+)?$ ]]; then
+            yaml_cli -f "$1" -n "$_new_key" "$3"
+        elif [[ $3 =~ ^(true|false)$ ]]; then
+            yaml_cli -f "$1" -b "$_new_key" "$3"
+        else
+            yaml_cli -f "$1" -s "$_new_key" "$3"
+        fi
+
     else
-        # Otherwise, overwrite the line
-        yaml_cli -f "$1" "${@:2}"
+        yq -yi ."$2=$3" "$1"
     fi
 
     # Return state
@@ -136,11 +153,11 @@ setYaml() {
 
 # Basically like setYaml, but checks if it is necessary to change something.
 #
-# updateYaml <filename> <key> <value> <processes...>
+# updateYaml <filename> <key> <value>
 updateYaml() {
     echo "[    ] Setting '$2' to '$3' inside '$1'..."
     if [ "$(getYaml "$1" "$2")" != "$3" ]; then
-        setProperties "$1" "$2" "${@:4}"
+        setYaml "$1" "$2" "$3"
         local _result=$?
         if [ "$_result" -eq 0 ]; then
             echo -e "\e[1A[ \e[32mOK\e[39m ]"
@@ -205,7 +222,7 @@ fi
 if [ "$BUNGEECORD" == "true" ]; then
     echo "[....] Setting parameters, so that BungeeCord can access..."
     updateProperties server.properties online-mode false
-    updateYaml bukkit.yml settings.connection-throttle -1 -n settings:connection-throttle -1
+    updateYaml bukkit.yml settings.\"connection-throttle\" -1
 fi
 
 # Set variables for java runtime
