@@ -119,7 +119,7 @@ setYaml() {
         createFile "$1"
     fi
 
-    if [ ! -s "$2" ]; then
+    if [ ! -s "$1" ]; then
         # Fixes "Error: argument of type 'NoneType' is not iterable"
         echo "help-the-parser: null" >"$1"
     fi
