@@ -223,6 +223,7 @@ if [ "$BUNGEECORD" == "true" ]; then
     echo "[....] Setting parameters, so that BungeeCord can access..."
     updateProperties server.properties online-mode false
     updateYaml bukkit.yml settings.\"connection-throttle\" -1
+    updateYaml spigot.yml settings.bungeecord true
 fi
 
 # Set variables for java runtime
