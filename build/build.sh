@@ -18,14 +18,15 @@ apk add --no-cache \
 pip3 install yq
 pip install git+https://github.com/Gallore/yaml_cli
 
-# Remove .sh for easier usage (https://stackoverflow.com/questions/7450818/rename-all-files-in-directory-from-filename-h-to-filename-half)
+# Remove .sh for easier usage
+# https://stackoverflow.com/questions/7450818/rename-all-files-in-directory-from-filename-h-to-filename-half
 for file in /usr/local/bin/*.sh; do
     mv "$file" "${file/.sh/}"
 done
 
 # Build spigot.jar
 if [[ ! -f BuildTools.jar ]]; then
-    curl -o BuildTools.jar -fL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+    curl -o BuildTools.jar -fsSL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 fi
 
 if [[ ! -d /app ]]; then
@@ -37,6 +38,8 @@ fi
 cd data
 java -Xms4G -Xmx4G -jar ../BuildTools.jar --rev "${SPIGOT_VERSION}" -o /app
 
+# Rename
 find /app -iname 'spigot-*.jar' -exec mv {} /app/spigot.jar \;
 
+# Cleanup
 rm -r /build

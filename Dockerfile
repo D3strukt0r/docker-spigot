@@ -8,7 +8,7 @@ ARG SPIGOT_VERSION=latest
 WORKDIR /build
 RUN set -eux; \
     apk update; \
-    apk add bash nano; \
+    apk add --no-cache bash; \
     /build/build.sh
 
 VOLUME ["/data"]
