@@ -57,22 +57,5 @@ jobs:
     - if: branch = master
       env: SPIGOT_VERSION=1.8
 
-before_install:
-  # Make file executable (Not by default)
-  - chmod 755 ./bin/travis-push-to-docker.sh
-
-  # Login to make sure we have access to private dockers
-  - |
-    if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
-      echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-    fi
-
 script:
-  - docker build --build-arg $SPIGOT_VERSION -t spigot .
-
-after_success:
-  # Upload the build
-  - |
-    if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
-      ./bin/travis-push-to-docker.sh
-    fi
+  - ./build/travis.sh
