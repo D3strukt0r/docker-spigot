@@ -28,6 +28,9 @@ if [[ ! -f BuildTools.jar ]]; then
     curl -o BuildTools.jar -fL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 fi
 
+if [[ ! -d /app ]]; then
+    mkdir /app
+fi
 if [[ ! -d data ]]; then
     mkdir data
 fi
