@@ -42,4 +42,4 @@ java -Xms4G -Xmx4G -jar ../BuildTools.jar --rev "${SPIGOT_VERSION}" -o /app
 find /app -iname 'spigot-*.jar' -exec mv {} /app/spigot.jar \;
 
 # Cleanup
-rm -r /build
+rm -r /build /root/.m2 /root/cache
