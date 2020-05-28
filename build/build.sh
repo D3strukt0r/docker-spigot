@@ -24,22 +24,5 @@ for file in /usr/local/bin/*.sh; do
     mv "$file" "${file/.sh/}"
 done
 
-# Build spigot.jar
-if [[ ! -f BuildTools.jar ]]; then
-    curl -o BuildTools.jar -fsSL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
-fi
-
-if [[ ! -d /app ]]; then
-    mkdir /app
-fi
-if [[ ! -d data ]]; then
-    mkdir data
-fi
-cd data
-java -Xms4G -Xmx4G -jar ../BuildTools.jar --rev "${SPIGOT_VERSION}" -o /app
-
-# Rename
-find /app -iname 'spigot-*.jar' -exec mv {} /app/spigot.jar \;
-
 # Cleanup
-rm -r /build /root/.m2
+rm -r /build

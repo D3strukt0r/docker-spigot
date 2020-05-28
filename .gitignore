@@ -74,6 +74,3 @@ $RECYCLE.BIN/
 
 # Sphinx documentation
 docs/_build/
-
-build/Buildtools.jar
-build/data/

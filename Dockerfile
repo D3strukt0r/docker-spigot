@@ -1,9 +1,8 @@
-FROM alpine:latest
+ARG SPIGOT_VERSION=latest
+FROM d3strukt0r/spigot-build:${SPIGOT_VERSION}
 
 COPY bin /usr/local/bin
 COPY build /build
-
-ARG SPIGOT_VERSION=latest
 
 WORKDIR /build
 RUN set -eux; \
@@ -11,7 +10,7 @@ RUN set -eux; \
     apk add --no-cache bash; \
     /build/build.sh
 
+EXPOSE 25565
 VOLUME ["/data"]
-
 WORKDIR /data
 ENTRYPOINT ["docker-entrypoint"]

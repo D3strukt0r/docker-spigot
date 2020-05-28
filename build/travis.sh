@@ -5,7 +5,7 @@ if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
 fi
 
 REPO=spigot
-docker build --build-arg "$SPIGOT_VERSION" -t $REPO .
+docker build --build-arg "SPIGOT_VERSION=$SPIGOT_VERSION" -t $REPO .
 
 if [[ -v DOCKER_PASSWORD && -v DOCKER_USERNAME ]]; then
     if [ "$TRAVIS_BRANCH" == "master" ]; then
