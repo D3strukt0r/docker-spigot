@@ -124,7 +124,7 @@ Sending commands
 
 .. code-block:: bash
 
-   docker exec spigot_1 console "<command>"
+   docker exec spigot_1 console.sh "<command>"
 
 Replace :code:`<command>` with the command you need. This is what you would also usually enter
 inside your regular console, like e. g. :code:`op D3strukt0r`.

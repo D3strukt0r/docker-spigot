@@ -238,5 +238,6 @@ true >$_console_input
 
 # Start the main application
 echo "[....] Starting Minecraft server..."
-tail -f $_console_input | tee /dev/console | $(command -v java) $JAVA_OPTIONS -jar /app/spigot.jar --nogui "$@" &
-interactive_console
+# shellcheck disable=SC2086
+tail -f $_console_input | tee /dev/console | $(command -v java) $JAVA_OPTIONS -jar /app/spigot.jar "$@" &
+interactive_console.sh
