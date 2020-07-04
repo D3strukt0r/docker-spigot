@@ -73,7 +73,7 @@ the required amount of RAM you will need, please consult Google.
 Minecraft required you to manually accept the EULA, do this by simply adding this environment
 variable.
 
---name spigot
+--name spigot_1
 --------------------------
 Give the container a name, for easier referencing later on.
 
@@ -106,7 +106,6 @@ versions check the `Tags on Docker Hub`_.
    Then enter :code:`screen -r spigot` or :code:`screen -r 00000.pts-0.office` (or whatever was shown
    with :code:`screen -r`).
 
-
 Reading the logs
 ==========================
 
@@ -125,7 +124,7 @@ Sending commands
 
 .. code-block:: bash
 
-   docker exec spigot_1 console "<command>"
+   docker exec spigot_1 console.sh "<command>"
 
 Replace :code:`<command>` with the command you need. This is what you would also usually enter
 inside your regular console, like e. g. :code:`op D3strukt0r`.

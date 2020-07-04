@@ -31,7 +31,6 @@
 Welcome to docker-spigot's documentation!
 =========================================
 
-
 Indices and tables
 ==================
 

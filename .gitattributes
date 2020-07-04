@@ -1,2 +1,3 @@
-# Required for Docker
-*.sh eol=lf
+* text=auto
+*.txt text
+*.sh text eol=lf

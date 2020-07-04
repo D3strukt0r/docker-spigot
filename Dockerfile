@@ -1,40 +1,23 @@
-# -------
-# Builder
-# -------
-
-FROM alpine:latest AS build
-
-RUN apk add curl git openjdk8-jre
-RUN git config --global --unset core.autocrlf; exit 0
-
 ARG SPIGOT_VERSION=latest
+FROM d3strukt0r/spigot-build:${SPIGOT_VERSION}
 
-# Download the builder
-WORKDIR /app/build
-RUN curl -o BuildTools.jar -fL https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+RUN set -eux; \
+    apk update; \
+    apk add --no-cache \
+    # Required for yq and yaml_cli (runs on Python)
+    python3 py3-pip python py-pip \
+    # Required to download yaml_cli
+    git \
+    # Required by yq
+    jq; \
+    # yq
+    pip3 install yq; \
+    # yaml_cli
+    pip install git+https://github.com/Gallore/yaml_cli; \
+    # Cleanup
+    apk del git
 
-# Execute the builder
-WORKDIR /app/build/data
-RUN java -Xmx1G -jar ../BuildTools.jar --rev ${SPIGOT_VERSION}
-
-# Copy the resulting file into a known file name
-RUN find -iname 'spigot-*.jar' -exec mv {} /app/spigot.jar \;
-
-# -------
-# Final Container
-# -------
-
-FROM openjdk:8-jre-slim
-
-COPY --from=build /app/spigot.jar /app/spigot.jar
-
-COPY src/minecraft-console.sh /usr/local/bin/console
-RUN chmod 755 /usr/local/bin/console
-
-COPY src/docker-entrypoint.sh /usr/local/bin/
-RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
-
-VOLUME ["/data"]
+COPY bin /usr/local/bin
 
 WORKDIR /data
 ENTRYPOINT ["docker-entrypoint.sh"]

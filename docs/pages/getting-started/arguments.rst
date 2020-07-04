@@ -30,6 +30,10 @@ Environment Variables
 
   Accept EULA before Spigot asks for it, for a smooth startup.
 
+- :code:`BUNGEECORD` - (Default: :code:`false`) - :code:`false`, :code:`true`
+
+  Change the settings, so that bungeecord can be used.
+
 Volumes
 =====================
 
