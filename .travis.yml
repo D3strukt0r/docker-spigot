@@ -16,6 +16,9 @@ jobs:
   include:
     - env: SPIGOT_VERSION=latest
 
+    - if: branch = master
+      env: SPIGOT_VERSION=1.16.1
+
     # bStats: 56.8%
     # MCStats: N/A
     - if: branch = master
