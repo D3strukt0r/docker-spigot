@@ -1,0 +1,140 @@
+name: CI/CD
+
+env:
+  IMAGE_NAME: spigot
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+
+  # Run tests for any PRs.
+  pull_request:
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version of Minecraft"
+        required: true
+        default: "latest"
+
+jobs:
+  # Run tests.
+  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
+  test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set variables
+        run: |
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          # Figure out correct MC version
+          SPIGOT_LATEST_VERSION=$(curl -s https://hub.spigotmc.org/versions/ | grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' | sed 's/-pre/~pre/' | sort --version-sort | sed 's/~pre/-pre/' | tail -n 1)
+
+          if [ "$VERSION" == "master" ]; then
+              SPIGOT_VERSION=$SPIGOT_LATEST_VERSION
+          elif [ "$VERSION" == "develop" ]; then
+              SPIGOT_VERSION=$SPIGOT_LATEST_VERSION
+          else
+              SPIGOT_VERSION=$VERSION
+          fi
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.version }}" == "latest" ]; then
+              SPIGOT_VERSION=$SPIGOT_LATEST_VERSION
+          else [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+              SPIGOT_VERSION=${{ github.event.inputs.version }}
+          fi
+
+          echo "VERSION=$VERSION"
+          echo "SPIGOT_VERSION=$SPIGOT_VERSION"
+          echo "::set-env name=SPIGOT_VERSION::$SPIGOT_VERSION"
+
+      - name: Run tests
+        run: |
+          echo "SPIGOT_VERSION=$SPIGOT_VERSION"
+          if [ -f docker-compose.test.yml ]; then
+            docker-compose --file docker-compose.test.yml build
+            docker-compose --file docker-compose.test.yml run sut
+          else
+            docker build . --file Dockerfile --build-arg "SPIGOT_VERSION=$SPIGOT_VERSION"
+          fi
+
+  # Push image to GitHub Packages.
+  # See also https://docs.docker.com/docker-hub/builds/
+  push:
+    # Ensure test job passes before pushing image.
+    # needs: test
+
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set variables
+        run: |
+          IMAGE_ID=${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          # Figure out correct MC version
+          SPIGOT_LATEST_VERSION=$(curl -s https://hub.spigotmc.org/versions/ | grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' | sed 's/-pre/~pre/' | sort --version-sort | sed 's/~pre/-pre/' | tail -n 1)
+
+          if [ "$VERSION" == "master" ]; then
+              SPIGOT_VERSION=$SPIGOT_LATEST_VERSION
+              DOCKER_VERSION=latest
+          elif [ "$VERSION" == "develop" ]; then
+              SPIGOT_VERSION=$SPIGOT_LATEST_VERSION
+              DOCKER_VERSION=nightly
+          else
+              SPIGOT_VERSION=$VERSION
+              DOCKER_VERSION=$VERSION
+          fi
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.version }}" == "latest" ]; then
+              SPIGOT_VERSION=$SPIGOT_LATEST_VERSION
+              if [ "$VERSION" == "master" ]; then
+                  DOCKER_VERSION=latest
+              elif [ "$VERSION" == "develop" ]; then
+                  DOCKER_VERSION=nightly
+              fi
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+              SPIGOT_VERSION=${{ github.event.inputs.version }}
+              DOCKER_VERSION=${{ github.event.inputs.version }}
+          fi
+
+          echo "IMAGE_ID=$IMAGE_ID"
+          echo "::set-env name=IMAGE_ID::$IMAGE_ID"
+          echo "SPIGOT_VERSION=$SPIGOT_VERSION"
+          echo "::set-env name=SPIGOT_VERSION::$SPIGOT_VERSION"
+          echo "DOCKER_VERSION=$DOCKER_VERSION"
+          echo "::set-env name=DOCKER_VERSION::$DOCKER_VERSION"
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME --build-arg "SPIGOT_VERSION=$SPIGOT_VERSION"
+
+      - name: Log into registry
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Push image to Docker Hub
+        run: |
+          docker tag $IMAGE_NAME $IMAGE_ID:$DOCKER_VERSION
+          docker push $IMAGE_ID:$DOCKER_VERSION
