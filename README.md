@@ -47,52 +47,45 @@ In order to run this container you'll need docker installed.
 
 ### Usage
 
-#### Docker CLI
+#### Starting a server
 
 ```shell script
-docker run -it \
-           -p 25565:25565 \
-           -v $(pwd)/data:/data \
-           -e JAVA_MAX_MEMORY=1G \
-           -e EULA=true \
-           d3strukt0r/spigot
+docker run \
+      --rm \
+      -d \
+      -p 25565:25565 \
+      -v $(pwd)/data:/data \
+      -e JAVA_MAX_MEMORY=1G \
+      -e EULA=true \
+      --name spigot \
+      d3strukt0r/spigot
 ```
 
-#### Docker CLI (detached)
+**Hint**
+
+If you need to add another port to your docker container, use `-p xxxxx:xxxxx` in your command.
+
+**Important**
+
+When configuring the server you **HAVE TO** either leave the server-ip empty or use following option in your `server.properties` file
+```properties
+server-ip=0.0.0.0
+```
+
+#### Reading the logs
 
 ```shell script
-docker run -d \
-           -p 25565:25565 \
-           -v $(pwd)/data:/data \
-           -e JAVA_MAX_MEMORY=1G \
-           -e EULA=true \
-           --name spigot \
-           d3strukt0r/spigot
+docker logs -f spigot
 ```
 
-However there is no way to attach back to it, so instead use a library in linux which is known as "screen" and shown in the next section.
-
-#### Docker CLI (with `screen`)
+#### Sending commands
 
 ```shell script
-screen -d -m -S "spigot" \
-  docker run -it \
-             -p 25565:25565 \
-             -v $(pwd)/data:/data \
-             -e JAVA_MAX_MEMORY=1G \
-             -e EULA=true \
-             d3strukt0r/spigot
+docker exec spigot console "<command>"
 ```
 
-You can detach from the window using `CTRL` + `a` and then `d`.
+#### Using Docker Compose (docker-compose.yml)
 
-To reattach first find your screen with `screen -r`. And if you gave it a name, you can skip this.
-
-Then enter `screen -r spigot` or `screen -r 00000.pts-0.office` (or whatever was shown with `screen -r`)
-
-#### Docker Compose
-
-Example `docker-compose.yml` file:
 ```yml
 version: '2'
 
@@ -108,18 +101,7 @@ services:
       - EULA=true
 ```
 
-And then use `docker-compose up` or `docker-compose up -d` for detached. Again using the experience with linux's `screen` library
-
-**Important**
-
-When configuring the server you **HAVE TO** use following option in your `server.properties` file
-```properties
-server-ip=0.0.0.0
-```
-
-**Hint**
-
-If you need to add another port to your docker container, use `-p xxxxx:xxxxx` in your command.
+And then use `docker-compose up` or `docker-compose up -d` for detached.
 
 ## Built With
 
