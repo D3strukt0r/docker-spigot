@@ -1,0 +1,71 @@
+name: Check Outdated Versions
+
+env:
+  IMAGE_NAME: spigot
+
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set Docker image id
+        run: echo "::set-env name=IMAGE_ID::${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME"
+
+      - name: Get latest spigot version
+        run: echo "::set-env name=SPIGOT_LATEST_VERSION::$(curl -s https://hub.spigotmc.org/versions/ | egrep "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' | sed 's/-pre/~pre/' | sort --version-sort | sed 's/~pre/-pre/' | tail -n 1)"
+
+      # https://stackoverflow.com/questions/32113330/check-if-imagetag-combination-already-exists-on-docker-hub
+      - name: Check if version already build
+        id: docker-tag-exists
+        continue-on-error: true
+        run: |
+          function docker_tag_exists() {
+              TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'${{ secrets.DOCKER_PASSWORD }}'", "password": "'${{ secrets.DOCKER_USERNAME }}'"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+              curl --silent -f --head -lL https://hub.docker.com/v2/repositories/$1/tags/$2/ > /dev/null
+          }
+          echo $IMAGE_ID
+          if docker_tag_exists "$IMAGE_ID" "$SPIGOT_LATEST_VERSION"; then
+              exit 0
+          else
+              exit 1
+          fi
+
+      - name: Check if outdated
+        id: check-if-outdated
+        if: steps.docker-tag-exists.outcome == 'success'
+        continue-on-error: true
+        run: |
+          _OUTPUT_FILE="output.txt"
+
+          echo "Starting Spigot..."
+          docker pull $IMAGE_ID:$SPIGOT_LATEST_VERSION
+          docker run -i --rm --name spigot -e JAVA_OPTIONS=-Xmx4G $IMAGE_ID:$SPIGOT_LATEST_VERSION 2>&1 | tee $_OUTPUT_FILE
+          sleep 3
+
+          echo "Killing process..."
+          docker stop spigot || true && docker rm spigot || true
+
+          # https://stackoverflow.com/questions/11287861/how-to-check-if-a-file-contains-a-specific-string-using-bash
+          if grep -q outdated $_OUTPUT_FILE; then
+              exit 0
+          else
+              exit 1
+          fi
+
+        # https://docs.github.com/en/rest/reference/actions#create-a-workflow-dispatch-event
+      - name: Start build workflow
+        if: steps.check-if-outdated.outcome == 'success' || steps.docker-tag-exists.outcome == 'failure'
+        run: |
+          curl \
+              --silent \
+              --request POST \
+              --header "Authorization: Bearer ${{ secrets.PAT }}" \
+              --header "Accept: application/vnd.github.v3+json" \
+              --url https://api.github.com/repos/D3strukt0r/docker-spigot/actions/workflows/ci-cd.yml/dispatches \
+              --data "{\"ref\":\"refs/heads/master\",\"inputs\":{\"version\":\"$SPIGOT_LATEST_VERSION\"}}"
