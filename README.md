@@ -35,9 +35,9 @@ For more in-depth docs, please visit the [Docs](https://docker-spigot-docs.manue
 
 In order to run this container you'll need docker installed.
 
-* [Windows](https://docs.docker.com/docker-for-windows/install/)
-* [OS X](https://docs.docker.com/docker-for-mac/install/)
-* [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/)
+-   [Windows](https://docs.docker.com/docker-for-windows/install/)
+-   [OS X](https://docs.docker.com/docker-for-mac/install/)
+-   [Linux](https://docs.docker.com/install/linux/docker-ce/ubuntu/)
 
 ### Usage
 
@@ -62,6 +62,7 @@ If you need to add another port to your docker container, use `-p xxxxx:xxxxx` i
 **Important**
 
 When configuring the server you **HAVE TO** either leave the server-ip empty or use following option in your `server.properties` file
+
 ```properties
 server-ip=0.0.0.0
 ```
@@ -81,7 +82,7 @@ docker exec spigot console "<command>"
 #### Using Docker Compose (docker-compose.yml)
 
 ```yaml
-version: '2'
+version: "2"
 
 services:
   spigot:
@@ -99,15 +100,15 @@ And then use `docker-compose up` or `docker-compose up -d` for detached.
 
 ## Built With
 
-* [OpenJDK](https://hub.docker.com/_/openjdk) - The Java conatainer in Docker
-* [Spigot](https://www.spigotmc.org/wiki/spigot/) - The main software
-* [Travis CI](https://travis-ci.com/) - Automatic CI (Testing) / CD (Deployment)
-* [Docker](https://www.docker.com/) - Building a Container for the Server
+-   [OpenJDK](https://hub.docker.com/_/openjdk) - The Java conatainer in Docker
+-   [Spigot](https://www.spigotmc.org/wiki/spigot/) - The main software
+-   [Github Actions](https://github.com/features/actions) - Automatic CI (Testing) / CD (Deployment)
+-   [Docker](https://www.docker.com/) - Building a Container for the Server
 
 ## Find Us
 
-* [GitHub](https://github.com/D3strukt0r/docker-spigot)
-* [Docker Hub](https://hub.docker.com/r/d3strukt0r/spigot)
+-   [GitHub](https://github.com/D3strukt0r/docker-spigot)
+-   [Docker Hub](https://hub.docker.com/r/d3strukt0r/spigot)
 
 ## Contributing
 
@@ -119,7 +120,7 @@ There is no versioning in this project. Only the develop for nightly builds, and
 
 ## Authors
 
-* **Manuele Vaccari** - [D3strukt0r](https://github.com/D3strukt0r) - *Initial work*
+-   **Manuele Vaccari** - [D3strukt0r](https://github.com/D3strukt0r) - _Initial work_
 
 See also the list of [contributors](https://github.com/D3strukt0r/docker-spigot/contributors) who
 participated in this project.
@@ -130,8 +131,8 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## Acknowledgments
 
-* Kjell Havnesköld with [nimmis/docker-spigot](https://github.com/nimmis/docker-spigot)
-* Sylvain CAU with [AshDevFr/docker-spigot](https://github.com/AshDevFr/docker-spigot)
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
+-   Kjell Havnesköld with [nimmis/docker-spigot](https://github.com/nimmis/docker-spigot)
+-   Sylvain CAU with [AshDevFr/docker-spigot](https://github.com/AshDevFr/docker-spigot)
+-   Hat tip to anyone whose code was used
+-   Inspiration
+-   etc
