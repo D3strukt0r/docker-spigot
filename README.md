@@ -3,33 +3,27 @@
 Use the Minecraft Spigot server as a Docker container
 
 **Project**
-[Docker][docker] | [License][license]
---- | ---
-![Docker Stars][docker-stars-icon]<br />![Docker Pulls][docker-pulls-icon] | ![License][license-icon]
+
+[![License](https://img.shields.io/github/license/d3strukt0r/docker-spigot)][license]
+[![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)][docker]
+[![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg)][docker]
+[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/Check%20Outdated%20Versions/badge.svg?branch=master)][gh-action]
+[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/Update%20versions/badge.svg?branch=master)][gh-action]
 
 **master**-branch (alias stable, latest)
-[Travis][travis] | [Docs][rtfd]
---- | ---
-![Build status][travis-master-icon] | ![Docs build status][rtfd-master-icon]
+
+[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/CI/CD/badge.svg?branch=master)][gh-action]
+[![Docs build status](https://img.shields.io/readthedocs/docker-spigot/master)][rtfd]
 
 **develop**-branch (alias nightly)
 
-[Travis][travis] | [Docs][rtfd]
---- | ---
-![Build status][travis-develop-icon] | ![Docs build status][rtfd-develop-icon]
+[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/CI/CD/badge.svg?branch=develop)][gh-action]
+[![Docs build status](https://img.shields.io/readthedocs/docker-spigot/develop)][rtfd]
 
 [license]: https://github.com/D3strukt0r/docker-spigot/blob/master/LICENSE.txt
 [docker]: https://hub.docker.com/repository/docker/d3strukt0r/spigot
-[travis]: https://travis-ci.com/github/D3strukt0r/docker-spigot
-[docker-stars-icon]: https://img.shields.io/docker/stars/d3strukt0r/spigot.svg
 [rtfd]: https://docker-spigot-docs.manuele-vaccari.ch/
-
-[license-icon]: https://img.shields.io/github/license/d3strukt0r/docker-spigot
-[docker-pulls-icon]: https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg
-[travis-master-icon]: https://img.shields.io/travis/com/D3strukt0r/docker-spigot/master
-[travis-develop-icon]: https://img.shields.io/travis/com/D3strukt0r/docker-spigot/develop
-[rtfd-master-icon]: https://img.shields.io/readthedocs/docker-spigot/master
-[rtfd-develop-icon]: https://img.shields.io/readthedocs/docker-spigot/develop
+[gh-action]: https://github.com/D3strukt0r/docker-spigot/actions
 
 ## Getting Started
 
@@ -49,7 +43,7 @@ In order to run this container you'll need docker installed.
 
 #### Starting a server
 
-```shell script
+```shell
 docker run \
       --rm \
       -d \
@@ -74,19 +68,19 @@ server-ip=0.0.0.0
 
 #### Reading the logs
 
-```shell script
+```shell
 docker logs -f spigot
 ```
 
 #### Sending commands
 
-```shell script
+```shell
 docker exec spigot console "<command>"
 ```
 
 #### Using Docker Compose (docker-compose.yml)
 
-```yml
+```yaml
 version: '2'
 
 services:
