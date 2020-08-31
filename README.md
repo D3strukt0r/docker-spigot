@@ -7,8 +7,8 @@ Use the Minecraft Spigot server as a Docker container
 [![License](https://img.shields.io/github/license/d3strukt0r/docker-spigot)][license]
 [![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot.svg)][docker]
 [![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot.svg)][docker]
-[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/Check%20Outdated%20Versions/badge.svg?branch=master)][gh-action]
-[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/Update%20versions/badge.svg?branch=master)][gh-action]
+[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/Check%20Outdated%20Versions/badge.svg)][gh-action]
+[![GH Action CI/CD](https://github.com/D3strukt0r/docker-spigot/workflows/Update%20versions/badge.svg)][gh-action]
 
 **master**-branch (alias stable, latest)
 
