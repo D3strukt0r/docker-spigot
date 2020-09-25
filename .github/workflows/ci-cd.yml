@@ -112,6 +112,7 @@ jobs:
               SPIGOT_VERSION=$VERSION
           fi
 
+          echo "::set-env name=VERSION::$VERSION"
           echo "::set-env name=SPIGOT_VERSION::$SPIGOT_VERSION"
 
       - name: Run tests
@@ -120,11 +121,11 @@ jobs:
             docker-compose --file docker-compose.test.yml build
             docker-compose --file docker-compose.test.yml run sut
           else
-            build_args="--build-arg="SPIGOT_VERSION=$SPIGOT_VERSION"
             if [ "$VERSION" == "latest" ] || [ "$VERSION" == "nightly" ]; then
-                build_args="--build-arg="SPIGOT_URL=https://github.com/D3strukt0r/spigot-build/releases/latest/download/spigot.jar"
+                docker build . --file Dockerfile --build-arg="SPIGOT_URL=https://github.com/D3strukt0r/spigot-build/releases/latest/download/spigot.jar"
+            else
+                docker build . --file Dockerfile --build-arg="SPIGOT_VERSION=$SPIGOT_VERSION"
             fi
-            docker build . --file Dockerfile $build_args
           fi
 
   # Push image to GitHub Packages.
