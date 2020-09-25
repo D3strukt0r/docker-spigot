@@ -82,3 +82,7 @@
 .gitkeep export-ignore
 
 # End of https://www.richie-bendall.ml/gitattributes-generator/
+
+.github export-ignore
+.vscode export-ignore
+.editorconfig export-ignore
