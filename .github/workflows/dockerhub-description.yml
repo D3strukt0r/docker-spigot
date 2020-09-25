@@ -1,0 +1,31 @@
+name: Update Docker Hub Description
+
+env:
+  IMAGE_NAME: spigot
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - README.md
+      - .github/workflows/dockerhub-description.yml
+
+  workflow_dispatch:
+
+jobs:
+  dockerHubDescription:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      # Change all uppercase to lowercase
+      - name: Set variables
+        run: echo "::set-env name=IMAGE_ID::$(echo "${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME" | tr '[A-Z]' '[a-z]')"
+
+      - name: Update README on Docker Hub
+        uses: peter-evans/dockerhub-description@v2
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKERHUB_REPOSITORY: ${{ env.IMAGE_ID }}

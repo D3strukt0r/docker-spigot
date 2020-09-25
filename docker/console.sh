@@ -1,2 +1,3 @@
 #!/bin/bash
-echo "$@" >>/app/input.buffer
+
+echo "$@" >>/tmp/input.buffer

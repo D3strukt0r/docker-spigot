@@ -1,8 +1,56 @@
 #!/bin/bash
 
+# set -eo pipefail
+
+# If command starts with an option (`-f` or `--some-option`), prepend main command
+if [ "${1#-}" != "$1" ]; then
+    set -- spigot "$@"
+fi
+
+# Logging functions
+entrypoint_log() {
+    local type="$1"
+    shift
+    printf '%s [%s] [Entrypoint]: %s\n' "$(date '+%Y-%m-%d %T %z')" "$type" "$*"
+}
+entrypoint_note() {
+    entrypoint_log Note "$@"
+}
+entrypoint_warn() {
+    entrypoint_log Warn "$@" >&2
+}
+entrypoint_error() {
+    entrypoint_log ERROR "$@" >&2
+    exit 1
+}
+
+# usage: file_env VAR [DEFAULT]
+#    ie: file_env 'XYZ_DB_PASSWORD' 'example'
+#
+# Will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
+# "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature
+# Read more: https://docs.docker.com/engine/swarm/secrets/
+file_env() {
+    local var="$1"
+    local fileVar="${var}_FILE"
+    local def="${2:-}"
+    if [ "${!var:-}" ] && [ "${!fileVar:-}" ]; then
+        echo >&2 "error: both $var and $fileVar are set (but are exclusive)"
+        exit 1
+    fi
+    local val="$def"
+    if [ "${!var:-}" ]; then
+        val="${!var}"
+    elif [ "${!fileVar:-}" ]; then
+        val="$(<"${!fileVar}")"
+    fi
+    export "$var"="$val"
+    unset "$fileVar"
+}
+
 # Prevents unwanted error messages to be diplayed to the console
 #
-# disableErrorMesssages
+# usage: disableErrorMesssages
 disableErrorMesssages() {
     exec 3>&2
     exec 2>/dev/null
@@ -10,28 +58,14 @@ disableErrorMesssages() {
 
 # Enables regular error messages
 #
-# enableErrorMessages
+# usage: enableErrorMessages
 enableErrorMessages() {
     exec 2>&3
 }
 
-# Creates a file
-#
-# createFile <file_location>
-createFile() {
-    disableErrorMesssages
-    touch "$1"
-
-    # Fixes file not found
-    # TODO: Find a better (more efficient) solution
-    sleep 0.5
-
-    enableErrorMessages
-}
-
 # Gets the settings value inside a .properties file containing key=value elements.
 #
-# getProperties <filename> <key>
+# usage: getProperties <filename> <key>
 getProperties() {
     disableErrorMesssages
     if [ -s "$1" ]; then
@@ -46,13 +80,13 @@ getProperties() {
 
 # Changes the settings in a .properties file containing key=value elements.
 #
-# setProperties <filename> <key> <value>
+# usage: setProperties <filename> <key> <value>
 setProperties() {
     disableErrorMesssages
 
     # Create the file if it doesn't exist yet
     if [ ! -f "$1" ]; then
-        createFile "$1"
+        touch "$1"
     fi
 
     # Check if the key exists
@@ -77,27 +111,25 @@ setProperties() {
 
 # Basically like setProperties, but checks if it is necessary to change something.
 #
-# updateProperties <filename> <key> <value>
+# usage: updateProperties <filename> <key> <value>
 updateProperties() {
-    echo "[    ] Setting '$2' to '$3' inside '$1'..."
     if [ "$(getProperties "$1" "$2")" != "$3" ]; then
         setProperties "$1" "$2" "$3"
         local _result=$?
         if [ "$_result" -eq 0 ]; then
-            echo -e "\e[1A[ \e[32mOK\e[39m ]"
+            entrypoint_note "[ OK ] Set '$2' to '$3' inside '$1'"
         elif [ "$_result" -eq 1 ]; then
-            echo -e "\e[1A[\e[31mFAIL\e[39m]"
-            exit 1
+            entrypoint_error "[FAIL] Set '$2' to '$3' inside '$1'"
         fi
     else
-        echo -e "\e[1A[\e[33mSKIP\e[39m]"
+        entrypoint_note "[SKIP] Set '$2' to '$3' inside '$1'"
     fi
 }
 
 # Reads the contents of a .yml file and finds the key's value
 # https://stackoverflow.com/questions/29969527/linux-shell-get-value-of-a-field-from-a-yml-file/29971515
 #
-# getYaml <filename> <key>
+# usage: getYaml <filename> <key>
 getYaml() {
     disableErrorMesssages
     if [ -s "$1" ]; then
@@ -110,13 +142,13 @@ getYaml() {
 # https://github.com/Gallore/yaml_cli
 # https://unix.stackexchange.com/questions/338781/is-it-possible-to-modify-a-yml-file-via-shell-script
 #
-# setYaml <filename> <key> <value>
+# usage: setYaml <filename> <key> <value>
 setYaml() {
     disableErrorMesssages
 
     # Create the file if it doesn't exist yet
     if [ ! -f "$1" ]; then
-        createFile "$1"
+        touch "$1"
     fi
 
     if [ ! -s "$1" ]; then
@@ -153,91 +185,108 @@ setYaml() {
 
 # Basically like setYaml, but checks if it is necessary to change something.
 #
-# updateYaml <filename> <key> <value>
+# usage: updateYaml <filename> <key> <value>
 updateYaml() {
-    echo "[    ] Setting '$2' to '$3' inside '$1'..."
     if [ "$(getYaml "$1" "$2")" != "$3" ]; then
         setYaml "$1" "$2" "$3"
         local _result=$?
         if [ "$_result" -eq 0 ]; then
-            echo -e "\e[1A[ \e[32mOK\e[39m ]"
+            entrypoint_note "[ OK ] Set '$2' to '$3' inside '$1'"
         elif [ "$_result" -eq 1 ]; then
-            echo -e "\e[1A[\e[31mFAIL\e[39m]"
-            exit 1
+            entrypoint_error "[FAIL] Set '$2' to '$3' inside '$1'"
         fi
     else
-        echo -e "\e[1A[\e[33mSKIP\e[39m]"
+        entrypoint_note "[SKIP] Set '$2' to '$3' inside '$1'"
     fi
 }
 
-# Create file if it doesn't exist yet
-echo "[    ] Creating EULA..."
-if [ ! -f eula.txt ]; then
-    createFile eula.txt
-fi
-# Add file contents, if empty
-if [ ! -s eula.txt ]; then
-    {
-        echo "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula)."
-        echo "#$(date)"
-        echo "eula=false"
-    } >>eula.txt
+# Setup java
+if [ "$1" = 'spigot' ]; then
+    entrypoint_note 'Entrypoint script for Spigot started'
 
-    if [ $? -eq 0 ]; then
-        echo -e "\e[1A[ \e[32mOK\e[39m ]"
-    else
-        echo -e "\e[1A[\e[31mFAIL\e[39m]"
-        exit 1
+    # ----------------------------------------
+
+    entrypoint_note 'Load various environment variables'
+    envs=(
+        JAVA_MEMORY
+        JAVA_BASE_MEMORY
+        JAVA_MAX_MEMORY
+        JAVA_OPTIONS
+        EULA
+        BUNGEECORD
+    )
+
+    # Set empty environment variable or get content from "/run/secrets/<something>"
+    for e in "${envs[@]}"; do
+        file_env "$e"
+    done
+
+    # Set default environment variable values
+    : "${JAVA_MEMORY:=512M}"
+    : "${JAVA_BASE_MEMORY:=${JAVA_MEMORY}}"
+    : "${JAVA_MAX_MEMORY:=${JAVA_MEMORY}}"
+    : "${JAVA_OPTIONS:=}"
+    : "${EULA:=false}"
+    : "${BUNGEECORD:=false}"
+
+    # ----------------------------------------
+
+    # Create file if it doesn't exist yet
+    if [ ! -f eula.txt ]; then
+        entrypoint_note 'Creating EULA'
+        touch eula.txt
     fi
-else
-    echo -e "\e[1A[\e[33mSKIP\e[39m]"
+    # Add file contents, if empty
+    if [ ! -s eula.txt ]; then
+        entrypoint_note 'Creating default EULA content'
+        {
+            echo '#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).'
+            echo "#$(date)"
+            echo 'eula=false'
+        } >>eula.txt
+    fi
+
+    entrypoint_note 'Create/Update EULA ...'
+    if [ "$EULA" != 'true' ]; then
+        EULA=false
+    fi
+    updateProperties eula.txt eula "$EULA"
+
+    # If EULA not accepted just stop
+    if [ "$(getProperties eula.txt eula)" != 'true' ]; then
+        entrypoint_error 'You need to agree to the EULA in order to run the server. Go to eula.txt for more info. Either set '\''eula=true'\'' in '\''eula.txt'\'' or run with '\''-e EULA=true'\'''
+    fi
+
+    entrypoint_note 'Set IP to be 0.0.0.0 (required for Docker)'
+    updateProperties server.properties server-ip 0.0.0.0
+
+    # Checks if BungeeCord has to access this server
+    if [ "$BUNGEECORD" != 'true' ]; then
+        BUNGEECORD=false
+    fi
+    if [ "$BUNGEECORD" = 'true' ]; then
+        entrypoint_note 'Setting parameters, so that BungeeCord can access...'
+        updateProperties server.properties online-mode false
+        updateYaml bukkit.yml settings.\"connection-throttle\" -1
+        updateYaml spigot.yml settings.bungeecord true
+    fi
+
+    # ----------------------------------------
+
+    # Set variables for java runtime
+    entrypoint_note "Setting initial memory to ${JAVA_BASE_MEMORY} and max to ${JAVA_MAX_MEMORY}"
+    JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
+
+    # Clear console buffers
+    true >/tmp/input.buffer
+
+    # Start the main application
+    entrypoint_note "Starting Minecraft server"
+    # shellcheck disable=SC2086
+    tail -f /tmp/input.buffer | tee /dev/console | java $JAVA_OPTIONS -jar /opt/spigot.jar "$@" &
+    interactive_console
+
+    exit
 fi
 
-# Set EULA parameter
-if [ "$EULA" != "true" ]; then
-    EULA="false"
-fi
-updateProperties eula.txt eula "$EULA"
-
-# If EULA not accepted just stop
-echo "[    ] Checking if EULA accepted..."
-if [ "$(getProperties eula.txt eula)" != "true" ]; then
-    echo -e "\e[1A[\e[31mFAIL\e[39m]"
-    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =
-    echo "You need to agree to the EULA in order to run the server. Go to eula.txt for more info."
-    echo "Either set 'eula=true' in 'eula.txt' or run with '-e EULA=true'"
-    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =
-    exit 1
-else
-    echo -e "\e[1A[ \e[32mOK\e[39m ]"
-fi
-
-# IP has to be set to 0.0.0.0 or empty
-updateProperties server.properties server-ip 0.0.0.0
-
-# Checks if BungeeCord has to access this server
-if [ "$BUNGEECORD" != "true" ]; then
-    BUNGEECORD="false"
-fi
-if [ "$BUNGEECORD" == "true" ]; then
-    echo "[....] Setting parameters, so that BungeeCord can access..."
-    updateProperties server.properties online-mode false
-    updateYaml bukkit.yml settings.\"connection-throttle\" -1
-    updateYaml spigot.yml settings.bungeecord true
-fi
-
-# Set variables for java runtime
-echo "[    ] Setting initial memory to ${JAVA_BASE_MEMORY:=${JAVA_MEMORY:=512M}} and max to ${JAVA_MAX_MEMORY:=${JAVA_MEMORY}}"
-JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
-echo -e "\e[1A[ \e[32mOK\e[39m ]"
-
-# Console buffers
-_console_input="/app/input.buffer"
-# Clear console buffers
-true >$_console_input
-
-# Start the main application
-echo "[....] Starting Minecraft server..."
-# shellcheck disable=SC2086
-tail -f $_console_input | tee /dev/console | $(command -v java) $JAVA_OPTIONS -jar /app/spigot.jar "$@" &
-interactive_console.sh
+exec "$@"
