@@ -1,12 +1,13 @@
-name: Check Outdated Versions
+name: Check outdated builds
 
 env:
   IMAGE_NAME: spigot
 
 on:
   schedule:
-    # * is a special character in YAML so you have to quote this string
-    - cron: "0 0 * * *"
+    # Every hour
+    - cron: "0 * * * *"
+
   workflow_dispatch:
 
 jobs:
@@ -15,7 +16,7 @@ jobs:
 
     steps:
       - name: Set Docker image id
-        run: echo "::set-env name=IMAGE_ID::${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME"
+        run: echo "::set-env name=IMAGE_ID::$(echo "${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME" | tr '[A-Z]' '[a-z]')"
 
       - name: Get latest spigot version
         run: echo "::set-env name=SPIGOT_LATEST_VERSION::$(curl -s https://hub.spigotmc.org/versions/ | egrep "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' | sed 's/-pre/~pre/' | sort --version-sort | sed 's/~pre/-pre/' | tail -n 1)"
@@ -41,18 +42,17 @@ jobs:
         if: steps.docker-tag-exists.outcome == 'success'
         continue-on-error: true
         run: |
-          _OUTPUT_FILE="output.txt"
-
           echo "Starting Spigot..."
           docker pull $IMAGE_ID:$SPIGOT_LATEST_VERSION
-          docker run -i --rm --name spigot -e JAVA_OPTIONS=-Xmx4G $IMAGE_ID:$SPIGOT_LATEST_VERSION 2>&1 | tee $_OUTPUT_FILE
+          docker run -i --rm --name spigot -e JAVA_OPTIONS=-Xmx4G $IMAGE_ID:$SPIGOT_LATEST_VERSION 2>&1 | tee output.txt
           sleep 3
 
           echo "Killing process..."
-          docker stop spigot || true && docker rm spigot || true
+          docker stop spigot || true
+          docker rm spigot || true
 
           # https://stackoverflow.com/questions/11287861/how-to-check-if-a-file-contains-a-specific-string-using-bash
-          if grep -q outdated $_OUTPUT_FILE; then
+          if grep -q outdated output.txt; then
               exit 0
           else
               exit 1
