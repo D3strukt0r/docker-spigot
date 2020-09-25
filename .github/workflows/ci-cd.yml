@@ -103,8 +103,12 @@ jobs:
         run: |
           # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          [ "$VERSION" = 'master' ] && [ '${{ matrix.spigot }}' = 'latest' ] && VERSION=latest
-          [ "$VERSION" = 'develop' ] && [ '${{ matrix.spigot }}' = 'latest' ] && VERSION=nightly
+          if [ '${{ matrix.spigot }}' = 'latest' ]; then
+              [ "$VERSION" = 'master' ] && VERSION=latest
+              [ "$VERSION" = 'develop' ] && VERSION=nightly
+          else
+              VERSION='${{ matrix.spigot }}'
+          fi
 
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
@@ -157,8 +161,12 @@ jobs:
 
           # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          [ "$VERSION" = 'master' ] && [ '${{ matrix.spigot }}' = 'latest' ] && VERSION=latest
-          [ "$VERSION" = 'develop' ] && [ '${{ matrix.spigot }}' = 'latest' ] && VERSION=nightly
+          if [ '${{ matrix.spigot }}' = 'latest' ]; then
+              [ "$VERSION" = 'master' ] && VERSION=latest
+              [ "$VERSION" = 'develop' ] && VERSION=nightly
+          else
+              VERSION='${{ matrix.spigot }}'
+          fi
 
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
