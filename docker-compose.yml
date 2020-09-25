@@ -1,0 +1,18 @@
+version: "2"
+
+services:
+  lobby:
+    build:
+      context: .
+      cache_from:
+        - ${IMAGE_CACHE:-d3strukt0r/spigot}
+    image: ${IMAGE:-d3strukt0r/spigot}
+    ports:
+      - 25565:25565
+    volumes:
+      - ./data:/app
+      - ./docker/console.sh:/usr/local/bin/console:ro
+      - ./docker/interactive_console.sh:/usr/local/bin/interactive_console:ro
+
+volumes:
+  spigot:

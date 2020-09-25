@@ -89,3 +89,6 @@ $RECYCLE.BIN/
 
 # Sphinx documentation
 docs/_build/
+
+# Volume for testing
+data
