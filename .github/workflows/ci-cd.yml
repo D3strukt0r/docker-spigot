@@ -80,7 +80,7 @@ jobs:
               jq --raw-input . |
               jq --compact-output --slurp '{spigot:.}'
           )
-          echo "::set-output name=matrix::$versions_json"
+          echo "::set-output name=matrix::${versions_json}"
 
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
@@ -128,8 +128,8 @@ jobs:
               SPIGOT_VERSION=$VERSION
           fi
 
-          echo ::set-output name=version::${VERSION}
-          echo ::set-output name=spigotVersion::${SPIGOT_VERSION}
+          echo "::set-output name=version::${VERSION}"
+          echo "::set-output name=spigotVersion::${SPIGOT_VERSION}"
 
       - name: Setup QEMU
         id: qemu
@@ -297,25 +297,25 @@ jobs:
 
           # Figure out correct MC version
           if [ "$VERSION" == "latest" ] || [ "$VERSION" == "nightly" ]; then
-              SPIGOT_VERSION=$(
-                curl -s https://hub.spigotmc.org/versions/ |
-                grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' |
-                sed 's/-pre/~pre/' |
-                sort --version-sort |
-                sed 's/~pre/-pre/' |
-                tail -n 1
-              )
+            SPIGOT_VERSION=$(
+              curl -s https://hub.spigotmc.org/versions/ |
+              grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' |
+              sed 's/-pre/~pre/' |
+              sort --version-sort |
+              sed 's/~pre/-pre/' |
+              tail -n 1
+            )
           else
-              SPIGOT_VERSION=$VERSION
+            SPIGOT_VERSION=$VERSION
           fi
 
           # Create tags
           TAGS="${DOCKER_IMAGE}:${VERSION}"
 
-          echo ::set-output name=version::${VERSION}
-          echo ::set-output name=spigotVersion::${SPIGOT_VERSION}
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo "::set-output name=version::${VERSION}"
+          echo "::set-output name=spigotVersion::${SPIGOT_VERSION}"
+          echo "::set-output name=tags::${TAGS}"
+          echo "::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
       - name: Setup QEMU
         id: qemu
