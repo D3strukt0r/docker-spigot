@@ -43,6 +43,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ADD ${SPIGOT_URL} /opt/spigot.jar
 COPY docker/console.sh /usr/local/bin/console
 COPY docker/interactive-console.sh /usr/local/bin/interactive-console
+COPY docker/spigot-start.sh /usr/local/bin/spigot-start
 
 EXPOSE 25565
 

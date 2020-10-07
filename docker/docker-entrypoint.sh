@@ -260,6 +260,9 @@ if [ "$1" = 'spigot' ]; then
     entrypoint_note 'Set IP to be 0.0.0.0 (required for Docker)'
     updateProperties server.properties server-ip 0.0.0.0
 
+    entrypoint_note 'Setting restart script'
+    updateYaml spigot.yml settings.\"restart-script\" /usr/local/bin/spigot-start
+
     # Checks if BungeeCord has to access this server
     if [ "$BUNGEECORD" != 'true' ]; then
         BUNGEECORD=false
