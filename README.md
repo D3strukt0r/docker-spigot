@@ -39,7 +39,7 @@ docker run \
     --rm \
     -d \
     -p 25565:25565 \
-    -v $(pwd)/spigot:/data \
+    -v $(pwd)/spigot:/app \
     -e JAVA_MAX_MEMORY=1G \
     -e EULA=true \
     --name spigot \
@@ -153,7 +153,7 @@ Basically, after creating a secret, append a `_FILE` (e. g. `JAVA_OPTIONS_FILE`)
 #### Useful File Locations
 
 -   `/usr/local/bin/console` - Can send a command to Spigot indirectly
--   `/usr/local/bin/interactive_console` - The console used after Spigot has started (So you can still run commands inside the console)
+-   `/usr/local/bin/interactive-console` - The console used after Spigot has started (So you can still run commands inside the console)
 
 ## Built With
 

@@ -284,7 +284,7 @@ if [ "$1" = 'spigot' ]; then
     entrypoint_note "Starting Minecraft server"
     # shellcheck disable=SC2086
     tail -f /tmp/input.buffer | tee /dev/console | java $JAVA_OPTIONS -jar /opt/spigot.jar "$@" &
-    interactive_console
+    interactive-console
 
     exit
 fi
