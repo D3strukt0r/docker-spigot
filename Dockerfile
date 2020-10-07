@@ -4,6 +4,7 @@ FROM openjdk:8-alpine
 ARG SPIGOT_BASE_URL=https://github.com/D3strukt0r/spigot-build/releases/download/
 ARG SPIGOT_VERSION=""
 ARG SPIGOT_FILE_URL=/spigot.jar
+# Use "https://github.com/D3strukt0r/spigot-build/releases/latest/download/spigot.jar" for latest
 ARG SPIGOT_URL=${SPIGOT_BASE_URL}${SPIGOT_VERSION}${SPIGOT_FILE_URL}
 
 WORKDIR /app
@@ -41,7 +42,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # hadolint ignore=DL3020
 ADD ${SPIGOT_URL} /opt/spigot.jar
 COPY docker/console.sh /usr/local/bin/console
-COPY docker/interactive_console.sh /usr/local/bin/interactive_console
+COPY docker/interactive-console.sh /usr/local/bin/interactive-console
+COPY docker/spigot-start.sh /usr/local/bin/spigot-start
 
 EXPOSE 25565
 

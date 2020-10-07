@@ -260,6 +260,9 @@ if [ "$1" = 'spigot' ]; then
     entrypoint_note 'Set IP to be 0.0.0.0 (required for Docker)'
     updateProperties server.properties server-ip 0.0.0.0
 
+    entrypoint_note 'Setting restart script'
+    updateYaml spigot.yml settings.\"restart-script\" /usr/local/bin/spigot-start
+
     # Checks if BungeeCord has to access this server
     if [ "$BUNGEECORD" != 'true' ]; then
         BUNGEECORD=false
@@ -284,7 +287,7 @@ if [ "$1" = 'spigot' ]; then
     entrypoint_note "Starting Minecraft server"
     # shellcheck disable=SC2086
     tail -f /tmp/input.buffer | tee /dev/console | java $JAVA_OPTIONS -jar /opt/spigot.jar "$@" &
-    interactive_console
+    interactive-console
 
     exit
 fi
