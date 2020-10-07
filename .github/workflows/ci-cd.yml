@@ -164,11 +164,12 @@ jobs:
         uses: actions/cache@v2
         with:
           # A list of files, directories, and wildcard patterns to cache and restore. See @actions/glob for supported patterns.
-          path: /tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }}
+          path: /tmp/.buildx-cache
           # An explicit key for restoring and saving the cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          key: ${{ runner.os }}-buildx-${{ github.sha }}-${{ steps.prep.outputs.spigotVersion }}
           # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
           restore-keys: |
+            ${{ runner.os }}-buildx-${{ github.sha }}-
             ${{ runner.os }}-buildx-
 
       - name: Build
@@ -204,9 +205,9 @@ jobs:
           # List of output destinations (format: type=local,dest=path)
           # outputs: # optional
           # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-from: type=local,src=/tmp/.buildx-cache # optional
           # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-to: type=local,dest=/tmp/.buildx-cache # optional
           # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
           # secrets: # optional
 
@@ -243,9 +244,9 @@ jobs:
           # List of output destinations (format: type=local,dest=path)
           # outputs: # optional
           # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-from: type=local,src=/tmp/.buildx-cache # optional
           # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-to: type=local,dest=/tmp/.buildx-cache # optional
           # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
           # secrets: # optional
 
@@ -352,11 +353,12 @@ jobs:
         uses: actions/cache@v2
         with:
           # A list of files, directories, and wildcard patterns to cache and restore. See @actions/glob for supported patterns.
-          path: /tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }}
+          path: /tmp/.buildx-cache
           # An explicit key for restoring and saving the cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          key: ${{ runner.os }}-buildx-${{ github.sha }}-${{ steps.prep.outputs.spigotVersion }}
           # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
           restore-keys: |
+            ${{ runner.os }}-buildx-${{ github.sha }}-
             ${{ runner.os }}-buildx-
 
       - name: Login to DockerHub
@@ -415,9 +417,9 @@ jobs:
           # List of output destinations (format: type=local,dest=path)
           # outputs: # optional
           # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-from: type=local,src=/tmp/.buildx-cache # optional
           # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-to: type=local,dest=/tmp/.buildx-cache # optional
           # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
           # secrets: # optional
 
@@ -465,8 +467,8 @@ jobs:
           # List of output destinations (format: type=local,dest=path)
           # outputs: # optional
           # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-from: type=local,src=/tmp/.buildx-cache # optional
           # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache/${{ steps.prep.outputs.spigotVersion }} # optional
+          cache-to: type=local,dest=/tmp/.buildx-cache # optional
           # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
           # secrets: # optional
