@@ -10,7 +10,7 @@ on:
     paths:
       - .github/workflows/ci-cd.yml
       - "docker/**"
-      - "**/Dockerfile"
+      - Dockerfile
 
   pull_request:
 
@@ -226,7 +226,7 @@ jobs:
           # List of metadata for an image
           # labels: # optional
           # List of tags
-          tags: localhost:5000/name/app2:latest # optional
+          tags: localhost:5000/name/app1:latest # optional
           # Always attempt to pull a newer version of the image
           # pull: false # optional, default is "false"
           # Sets the target stage to build
@@ -249,6 +249,10 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache # optional
           # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
           # secrets: # optional
+
+      - name: Inspect
+        run: |
+          docker buildx imagetools inspect localhost:5000/name/app1:latest
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
