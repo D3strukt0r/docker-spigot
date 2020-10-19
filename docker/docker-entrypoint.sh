@@ -157,7 +157,7 @@ setYaml() {
     fi
 
     # Use "yaml_cli" to add the key if it doesn't exist yet, otherwise use "yq" to overwrite
-    if [ "$(getYaml "$1" "$2")" == "" ]; then
+    if [ "$(getYaml "$1" "$2")" == "" ] || [ "$(getYaml "$1" "$2")" == "null" ]; then
         local _new_key="${2//[.]/:}"
         _new_key="${_new_key//\"/}"
 
@@ -187,7 +187,7 @@ setYaml() {
 #
 # usage: updateYaml <filename> <key> <value>
 updateYaml() {
-    if [ "$(getYaml "$1" "$2")" != "$3" ]; then
+    if [ "$(getYaml "$1" "$2")" != "$3" ] && [ "$(getYaml "$1" "$2")" != "\"$3\"" ]; then
         setYaml "$1" "$2" "$3"
         local _result=$?
         if [ "$_result" -eq 0 ]; then
@@ -260,6 +260,9 @@ if [ "$1" = 'spigot' ]; then
     entrypoint_note 'Set IP to be 0.0.0.0 (required for Docker)'
     updateProperties server.properties server-ip 0.0.0.0
 
+    entrypoint_note 'Setting restart script'
+    updateYaml spigot.yml settings.\"restart-script\" /usr/local/bin/spigot-start
+
     # Checks if BungeeCord has to access this server
     if [ "$BUNGEECORD" != 'true' ]; then
         BUNGEECORD=false
@@ -284,7 +287,7 @@ if [ "$1" = 'spigot' ]; then
     entrypoint_note "Starting Minecraft server"
     # shellcheck disable=SC2086
     tail -f /tmp/input.buffer | tee /dev/console | java $JAVA_OPTIONS -jar /opt/spigot.jar "$@" &
-    interactive_console
+    interactive-console
 
     exit
 fi
