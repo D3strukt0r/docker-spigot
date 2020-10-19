@@ -157,7 +157,7 @@ setYaml() {
     fi
 
     # Use "yaml_cli" to add the key if it doesn't exist yet, otherwise use "yq" to overwrite
-    if [ "$(getYaml "$1" "$2")" == "" ]; then
+    if [ "$(getYaml "$1" "$2")" == "" ] || [ "$(getYaml "$1" "$2")" == "null" ]; then
         local _new_key="${2//[.]/:}"
         _new_key="${_new_key//\"/}"
 
@@ -187,7 +187,7 @@ setYaml() {
 #
 # usage: updateYaml <filename> <key> <value>
 updateYaml() {
-    if [ "$(getYaml "$1" "$2")" != "$3" ]; then
+    if [ "$(getYaml "$1" "$2")" != "$3" ] && [ "$(getYaml "$1" "$2")" != "\"$3\"" ]; then
         setYaml "$1" "$2" "$3"
         local _result=$?
         if [ "$_result" -eq 0 ]; then
