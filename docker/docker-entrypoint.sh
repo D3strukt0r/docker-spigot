@@ -281,13 +281,14 @@ if [ "$1" = 'spigot' ]; then
     JAVA_OPTIONS="-Xms${JAVA_BASE_MEMORY} -Xmx${JAVA_MAX_MEMORY} ${JAVA_OPTIONS}"
 
     # Clear console buffers
-    true >/tmp/input.buffer
+    # true >/tmp/input.buffer
 
     # Start the main application
     entrypoint_note "Starting Minecraft server"
     # shellcheck disable=SC2086
-    tail -f /tmp/input.buffer | tee /dev/console | java $JAVA_OPTIONS -jar /opt/spigot.jar "$@" &
-    interactive-console
+    # tail -f /tmp/input.buffer | tee /dev/console | java $JAVA_OPTIONS -jar /opt/spigot.jar "$@" &
+    exec java $JAVA_OPTIONS -jar /opt/spigot.jar "$@"
+    # interactive-console
 
     exit
 fi
