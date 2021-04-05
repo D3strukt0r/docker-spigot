@@ -6,9 +6,14 @@ services:
       context: .
       cache_from:
         - ${IMAGE_CACHE:-d3strukt0r/spigot}
+      args:
+        SPIGOT_URL: https://github.com/D3strukt0r/spigot-build/releases/latest/download/spigot.jar
     image: ${IMAGE:-d3strukt0r/spigot}
     ports:
       - 25565:25565
+    environment:
+      EULA: "true"
+      JAVA_MEMORY: 1G
     volumes:
       - ./data:/app
       - ./docker/console.sh:/usr/local/bin/console:ro
