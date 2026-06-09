@@ -1,0 +1,12 @@
+{
+  // Recommended for local dev (the devcontainer installs the same set
+  // automatically via .devcontainer/devcontainer.json).
+  "recommendations": [
+    "vscjava.vscode-java-pack",
+    "redhat.vscode-yaml",
+    "github.vscode-github-actions",
+    "timonwong.shellcheck",
+    "jnoortheen.nix-ide",
+    "ms-azuretools.vscode-docker"
+  ]
+}

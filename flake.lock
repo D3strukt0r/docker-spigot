@@ -1,0 +1,48 @@
+{
+  "nodes": {
+    "nix-utils": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1780579946,
+        "narHash": "sha256-fq56+am2ZFYCcxwgoxLPV0orkiQEx+W7RsITuc9hnjA=",
+        "owner": "Team-MaRo",
+        "repo": "nix-utils",
+        "rev": "ab61a317a503b91ac34e5216654bc9fb33e3f400",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Team-MaRo",
+        "repo": "nix-utils",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1780902259,
+        "narHash": "sha256-q8yYEC5f1mFlQO9RGna4LTc9QrcvWunX6FYp83munkQ=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "bd0ff2d3eac24699c3664d5966b9ef36f388e2ca",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nix-utils": "nix-utils",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
