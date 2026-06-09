@@ -1,0 +1,4 @@
+name: StopOnStart
+version: "1.0"
+main: StopOnStart
+api-version: "1.13"

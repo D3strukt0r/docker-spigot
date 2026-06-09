@@ -1,83 +1,143 @@
-name: Check outdated builds
+name: Check outdated images
 
-env:
-  IMAGE_NAME: spigot
-
+# Weekly watchdog over the newest released version's Docker image. It pulls and
+# boots the published image; if the image is missing, reports itself outdated, or
+# never finishes starting, it triggers the docker workflow to rebuild it.
+#
+# The JARS are watched by their own repo (Team-MaRo/spigot-build) — its weekly
+# `missing + newest-N` build keeps them fresh. Here we only check the image and
+# the newest version we know about comes from the pinned spigot-build input
+# (`.#imageMatrix`), which lists exactly the versions we can build an image for.
 on:
   schedule:
-    - cron: "0 * * * *" # Every hour
+    - cron: '30 9 * * 1' # Mondays 09:30 UTC
 
   workflow_dispatch:
+
+permissions:
+  contents: write # keepalive pushes an empty commit to master
+  actions: write # to dispatch the docker workflow
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    name: Check newest image
 
     steps:
-      - name: Prepare
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      # Newest released version + the JDK it needs, from the pinned spigot-build
+      # input (e.g. [{"spigot":"26.1.2","java":"25"}] → newest).
+      - name: Resolve newest version
         id: prep
         run: |
-          echo "::set-output name=repository::$(echo "${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME" | tr '[A-Z]' '[a-z]')"
-          echo "::set-output name=latestSpigotVersion::$(
-            curl -s https://hub.spigotmc.org/versions/ |
-            egrep "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o |
-            uniq |
-            sed 's/\.$//' |
-            sed 's/-pre/~pre/' |
-            sort --version-sort |
-            sed 's/~pre/-pre/' |
-            tail -n 1
-          )"
+          set -euo pipefail
+          full="$(nix eval --json .#imageMatrix)"
+          # Strip any "-preN"/"-rcN" suffix before the numeric sort so pre-release tags don't break tonumber.
+          entry="$(printf '%s' "$full" | jq -c 'sort_by(.spigot | split("-")[0] | split(".") | map(tonumber)) | last')"
+          echo "version=$(printf '%s' "$entry" | jq -r '.spigot // ""')" >> "$GITHUB_OUTPUT"
+          echo "java=$(printf '%s' "$entry" | jq -r '.java // ""')" >> "$GITHUB_OUTPUT"
 
-      # https://stackoverflow.com/questions/32113330/check-if-imagetag-combination-already-exists-on-docker-hub
-      - name: Check if version already build
-        id: docker-tag-exists
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ steps.prep.outputs.java }}
+
+      # Build the StopOnStart plugin against the (spigot-build) release jar, which
+      # bundles the Bukkit API. --release 8 keeps the bytecode loadable by any
+      # server JVM. The jar is only used to compile the plugin — the jar itself is
+      # validated in the spigot-build repo, not here.
+      - name: Download jar and build plugin
         run: |
-          function docker_tag_exists() {
-              TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'${{ secrets.DOCKER_PASSWORD }}'", "password": "'${{ secrets.DOCKER_USERNAME }}'"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
-              curl --silent -f --head -lL https://hub.docker.com/v2/repositories/$1/tags/$2/ >/dev/null
-          }
-          if docker_tag_exists "${{ steps.prep.outputs.repository }}" "${{ steps.prep.outputs.latestSpigotVersion }}"; then
-              echo "::set-output name=exists::true"
-          else
-              echo "::set-output name=exists::false"
+          set -euo pipefail
+          curl -fsSL -o spigot.jar \
+            "https://github.com/Team-MaRo/spigot-build/releases/download/${{ steps.prep.outputs.version }}/spigot.jar"
+          javac --release 8 -cp spigot.jar -d plugin-build .github/check-outdated/StopOnStart.java
+          cp .github/check-outdated/plugin.yml plugin-build/
+          jar cf StopOnStart.jar -C plugin-build .
+
+      # Pull and run the published image for that version. The image ships the
+      # version-correct JRE, so it can run any version; we gate on a real start. A
+      # missing image, an "outdated" banner, or a server that never reaches the
+      # plugin all count as needing a rebuild.
+      - name: Detect outdated/broken/missing image
+        id: docker
+        run: |
+          set -euo pipefail
+          image="$(echo "${{ vars.IMAGE_NAME }}:${{ steps.prep.outputs.version }}" | tr '[:upper:]' '[:lower:]')"
+
+          if ! docker pull "$image" >/dev/null 2>&1; then
+            echo "image $image not found"
+            echo "bad=1" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-      - name: Check if outdated
-        id: check-if-outdated
-        if: steps.docker-tag-exists.outputs.exists == 'true'
-        run: |
-          echo "Starting Spigot..."
-          docker pull ${{ steps.prep.outputs.repository }}:${{ steps.prep.outputs.latestSpigotVersion }}
-          docker run -i --rm --name spigot -e JAVA_OPTIONS=-Xmx4G ${{ steps.prep.outputs.repository }}:${{ steps.prep.outputs.latestSpigotVersion }} 2>&1 | tee output.txt || true
-          sleep 3
+          # Boot with the StopOnStart plugin (shuts the server down right after
+          # start) so we verify a real start. Skip the Nether/End so onEnable is
+          # reached fast (both load during startup, before plugins enable).
+          mkdir -p appdata/plugins
+          cp StopOnStart.jar appdata/plugins/
+          chmod -R 777 appdata # the image runs as uid 65532; let it write here
 
-          echo "Killing process..."
-          docker stop spigot || true
-          docker rm spigot || true
+          docker run -d -e EULA=true \
+            -e BUKKIT__SETTINGS__ALLOW_NETHER=false \
+            -e BUKKIT__SETTINGS__ALLOW_END=false \
+            -v "$PWD/appdata:/srv/spigot" --name spigot-check "$image" >/dev/null 2>&1 || true
+          timeout 120 docker wait spigot-check >/dev/null 2>&1 || true
+          docker logs spigot-check > docker.log 2>&1 || true
+          docker rm -f spigot-check >/dev/null 2>&1 || true
 
-          # https://stackoverflow.com/questions/11287861/how-to-check-if-a-file-contains-a-specific-string-using-bash
-          if grep -q outdated output.txt; then
-              echo "::set-output name=outdated::true"
+          if grep -qi 'outdated' docker.log; then
+            echo "image reported outdated"
+            echo "bad=1" >> "$GITHUB_OUTPUT"
+          elif ! grep -q 'StopOnStart: server started' docker.log; then
+            echo "image never reached plugin-enable — broken"
+            cat docker.log || true
+            echo "bad=1" >> "$GITHUB_OUTPUT"
           else
-              echo "::set-output name=outdated::false"
+            echo "bad=0" >> "$GITHUB_OUTPUT"
           fi
 
-        # https://docs.github.com/en/rest/reference/actions#create-a-workflow-dispatch-event
-      - name: Start build workflow
-        if: steps.docker-tag-exists.outputs.exists == 'false' || steps.check-if-outdated.outputs.outdated == 'true'
+      - name: Trigger rebuild
+        if: steps.docker.outputs.bad == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl \
-              --silent \
-              --request POST \
-              --header "Authorization: Bearer ${{ secrets.PAT }}" \
-              --header "Accept: application/vnd.github.v3+json" \
-              --url https://api.github.com/repos/D3strukt0r/docker-spigot/actions/workflows/ci-cd.yml/dispatches \
-              --data "{\"ref\":\"refs/heads/master\",\"inputs\":{\"version\":\"${{ steps.prep.outputs.latestSpigotVersion }}\"}}"
-          curl \
-              --silent \
-              --request POST \
-              --header "Authorization: Bearer ${{ secrets.PAT }}" \
-              --header "Accept: application/vnd.github.v3+json" \
-              --url https://api.github.com/repos/D3strukt0r/docker-spigot/actions/workflows/ci-cd.yml/dispatches \
-              --data "{\"ref\":\"refs/heads/master\",\"inputs\":{\"version\":\"latest\"}}"
+          set -euo pipefail
+          echo "Image rebuild needed for ${{ steps.prep.outputs.version }} (bad=${{ steps.docker.outputs.bad }})"
+          gh workflow run docker.yml --ref master -f version="${{ steps.prep.outputs.version }}"
+
+      # GitHub auto-disables scheduled workflows after 60 days with no repository
+      # activity. If master's tip is older than the threshold, push one empty
+      # commit to re-arm them. Only on the scheduled run. Uses GITHUB_TOKEN (a bot
+      # push won't loop-trigger).
+      - name: Keepalive (prevent workflow auto-disable)
+        if: always() && github.event_name == 'schedule'
+        env:
+          KEEPALIVE_THRESHOLD_DAYS: '50'
+          KEEPALIVE_MESSAGE: 'chore: keepalive'
+        run: |
+          set -euo pipefail
+          last_epoch="$(git log -1 --pretty=%ct)"
+          age_days=$(( ( $(date +%s) - last_epoch ) / 86400 ))
+          if [ "$age_days" -lt "$KEEPALIVE_THRESHOLD_DAYS" ]; then
+            echo "last commit ${age_days}d ago (< ${KEEPALIVE_THRESHOLD_DAYS}d threshold) — no keepalive needed"
+            exit 0
+          fi
+          echo "last commit ${age_days}d ago — pushing keepalive commit"
+          git commit --allow-empty -m "$KEEPALIVE_MESSAGE"
+          git push origin HEAD:master

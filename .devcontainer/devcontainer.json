@@ -1,0 +1,54 @@
+{
+  "name": "docker-spigot",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "features": {
+    // JDK to run BuildTools and analyse the StopOnStart plugin. 25 is the newest
+    // LTS and what the latest (year-based) Minecraft needs; BuildTools picks the
+    // right toolchain per version anyway.
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "25",
+      "jdkDistro": "tem",
+      "installMaven": false,
+      "installGradle": false
+    },
+    // For .github/scripts/matrix.ts (run via `npx -y tsx`).
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+
+  // Fetches BuildTools and builds the latest Spigot to produce the spigot-api
+  // jar the Java settings below reference. Slow (~10-20 min) but runs once per
+  // container creation and is idempotent. See .devcontainer/setup.sh.
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  "customizations": {
+    "vscode": {
+      // Project Java settings (source paths, spigot-api library, buildtools
+      // exclusion) live in the committed .vscode/settings.json. The ONLY Java
+      // settings here are container-specific: point the JDK at the java
+      // feature's SDKMAN install, overriding any machine-specific path that
+      // arrives via Settings Sync (e.g. a Windows "C:\Program Files\Zulu" path,
+      // which doesn't exist in this Linux container). These are machine-scoped,
+      // so they override the synced user value but not a workspace setting.
+      "settings": {
+        "java.jdt.ls.java.home": "/usr/local/sdkman/candidates/java/current",
+        "java.configuration.runtimes": [
+          {
+            "name": "JavaSE-25",
+            "path": "/usr/local/sdkman/candidates/java/current",
+            "default": true
+          }
+        ]
+      },
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "redhat.vscode-yaml",
+        "github.vscode-github-actions",
+        "timonwong.shellcheck",
+        "jnoortheen.nix-ide",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}

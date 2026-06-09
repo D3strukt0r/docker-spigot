@@ -1,0 +1,28 @@
+# Local run/test compose for an image you BUILT AND LOADED yourself. The image is
+# built with Nix (no Dockerfile), so compose can't build it — build the tarball
+# and load it first, then point IMAGE at that tag:
+#
+#   nix build --impure '.#"26.1.2"'        # (or via the nixos/nix container — see AGENTS.md)
+#   docker load < result
+#   IMAGE=d3strukt0r/spigot:26.1.2 docker compose up
+#
+# pull_policy: never → compose uses ONLY the locally-loaded image and never
+# silently pulls the published (stale) one, so you always test your own build.
+services:
+  spigot:
+    image: ${IMAGE:-d3strukt0r/spigot}
+    pull_policy: never
+    restart: unless-stopped
+    stdin_open: true   # console usable via `docker compose attach spigot`
+    tty: true
+    stop_grace_period: 60s
+    ports:
+      - 25565:25565
+    environment:
+      EULA: "true"
+      MEMORY: 2G
+      # Any server.properties / bukkit.yml / spigot.yml key, e.g.:
+      MC__MOTD: A Minecraft Server
+      MC__MAX_PLAYERS: "20"
+    volumes:
+      - ./data:/srv/spigot

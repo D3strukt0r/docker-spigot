@@ -1,3 +1,31 @@
 {
-    "restructuredtext.confPath": "${workspaceFolder}\\docs"
+  // Treat .github/check-outdated as an "invisible project" so the Java
+  // extension fully analyses StopOnStart.java (instead of "non-project file,
+  // syntax only"). It extends Bukkit's JavaPlugin, which lives in the
+  // *spigot-api* jar — NOT the server jar (spigot-<ver>.jar is a bundler whose
+  // org.bukkit classes are in a nested jar jdtls can't read). Point at a flat
+  // spigot-api jar from a local BuildTools run (gitignored; globs so any version
+  // matches). With none present the file falls back to syntax-only — which is
+  // why this config stays out of git (see .gitignore).
+  "java.project.sourcePaths": [".github/check-outdated"],
+  "java.project.referencedLibraries": [
+      "buildtools/Spigot/Spigot-API/target/spigot-api-*-shaded.jar",
+      "dist/bundler/libraries/spigot-api-*.jar"
+  ],
+  // The local BuildTools scratch dir (gitignored) holds CraftBukkit/Spigot Maven
+  // projects. If jdtls imports those, the whole workspace becomes a multi-Maven
+  // project and the InvisibleProjectImporter is skipped — so sourcePaths above
+  // are ignored and StopOnStart.java stays a "non-project file". Exclude it
+  // (keeping jdtls' defaults) so the invisible project takes over.
+  "java.import.exclusions": [
+      "**/node_modules/**",
+      "**/.metadata/**",
+      "**/archetype-resources/**",
+      "**/META-INF/maven/**",
+      "**/buildtools/**"
+  ],
+  "java.compile.nullAnalysis.mode": "automatic",
+  // Save LF, not CRLF — CRLF in flake.nix/scripts breaks the Nix build & the
+  // entrypoint ($'\r'). Backstops .gitattributes against editor re-saves.
+  "files.eol": "\n"
 }

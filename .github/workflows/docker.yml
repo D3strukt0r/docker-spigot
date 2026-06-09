@@ -1,478 +1,437 @@
-name: CI/CD
-
-env:
-  IMAGE_NAME: spigot
+name: Docker
 
 on:
-  push:
-    branches:
-      - "**"
-    paths:
-      - .github/workflows/ci-cd.yml
-      - "docker/**"
-      - Dockerfile
+  # Defensive weekly rebuild of the 2 newest versions (new jars normally arrive
+  # as a spigot-build flake-input bump — see push below).
+  schedule:
+    - cron: '30 9 * * 1' # Mondays 09:30 UTC
 
-  pull_request:
-
+  # Manual builds. Selector mirrors spigot-build: 'latest', 'all', 'missing'
+  # (not-yet-pushed + newest N), or a specific version.
   workflow_dispatch:
     inputs:
       version:
-        description: "Version of Minecraft ('all', specific version)"
+        description: "Images to build: 'latest', 'all', 'missing', or a specific version (e.g. 26.1.2)"
         required: true
         default: "latest"
+      newest_n:
+        description: "In 'missing' mode, how many newest versions to always rebuild"
+        required: false
+        default: "2"
+
+  # Image source OR the pinned jar set changed → rebuild. flake.lock covers the
+  # Dependabot `nix flake update spigot-build` bump that brings in new jars.
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/docker.yml
+      - src/**
+      - flake.nix
+      - flake.lock
+
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  # https://docs.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions#tojson
-  create-matrix:
+  # Which images to build. The version list + per-version JDK come from the
+  # PINNED spigot-build input via `.#imageMatrix`, so they match exactly what
+  # `nix build .#"<ver>"` will build.
+  matrix:
     runs-on: ubuntu-latest
-
-    name: Create Matrix
-
+    name: Compute matrix
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      docker_matrix: ${{ steps.compute.outputs.docker_matrix }}
+      docker_build_matrix: ${{ steps.compute.outputs.docker_build_matrix }}
+      docker_count: ${{ steps.compute.outputs.docker_count }}
+      docker_build_count: ${{ steps.compute.outputs.docker_build_count }}
+      arch_list: ${{ steps.compute.outputs.arch_list }}
+      latest: ${{ steps.compute.outputs.latest }}
 
     steps:
-      - name: Create Matrix
-        id: set-matrix
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Compute matrix
+        id: compute
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          NEWEST_N: ${{ github.event.inputs.newest_n || '2' }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
         run: |
-          default_versions=($(
-              curl -s https://hub.spigotmc.org/versions/ |
-              grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o |
-              uniq |
-              sed 's/\.$//' |
-              sed 's/-pre/~pre/' |
-              sort --version-sort |
-              sed 's/~pre/-pre/'
-          ))
+          set -euo pipefail
+          full="$(nix eval --json .#imageMatrix)"   # [{spigot, java}] from spigot-build
+          event='${{ github.event_name }}'
+          # Numeric version sort (strip any "-preN"/"-rcN" suffix first so a
+          # pre-release tag doesn't break tonumber; it groups with its release).
+          SORT='sort_by(.spigot | split("-")[0] | split(".") | map(tonumber))'
+          latest="$(printf '%s' "$full" | jq -r "$SORT | last | .spigot // \"\"")"
 
-          if [ '${{ github.event_name }}' == 'push' ]; then
-              if [ '${{ github.ref }}' == 'refs/heads/master' ]; then
-                  versions=("${default_versions[@]}" 'latest')
-              elif [ '${{ github.ref }}' == 'refs/heads/develop' ]; then
-                  versions=latest
-              else
-                  exit 1
-              fi
-          elif [ '${{ github.event_name }}' == 'workflow_dispatch' ]; then
-              if [ "${{ github.event.inputs.version }}" == "latest" ]; then
-                  # Only get the latest version
-                  versions=($(
-                      curl -s https://hub.spigotmc.org/versions/ |
-                      grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o |
-                      uniq |
-                      sed 's/\.$//' |
-                      sed 's/-pre/~pre/' |
-                      sort --version-sort |
-                      sed 's/~pre/-pre/' |
-                      tail -n 1
-                  ))
-              elif [ "${{ github.event.inputs.version }}" == "all" ]; then
-                  versions=("${default_versions[@]}")
-              else
-                  versions=${{ github.event.inputs.version }}
-              fi
-          else
-              exit 1
-          fi
+          # Pick the selector per event. workflow_dispatch mirrors spigot-build
+          # (latest | all | missing | <specific>); the schedule always rebuilds
+          # the 2 newest (defensive); a PR smoke-builds the newest only.
+          case "$event" in
+            pull_request)      sel=latest ;;
+            schedule)          sel=newest; NEWEST_N=2 ;;
+            workflow_dispatch) sel="${INPUT_VERSION:-latest}" ;;
+            *)                 sel=latest ;;
+          esac
 
-          versions_json=$(
-              printf '%s\n' "${versions[@]}" |
-              jq --raw-input . |
-              jq --compact-output --slurp '{spigot:.}'
-          )
-          echo "::set-output name=matrix::${versions_json}"
+          case "$sel" in
+            latest)
+              docker_matrix="$(printf '%s' "$full" | jq -c "$SORT | [last]")" ;;
+            newest)
+              docker_matrix="$(printf '%s' "$full" | jq -c --argjson n "$NEWEST_N" "[limit(\$n; ($SORT | reverse | .[]))]")" ;;
+            all)
+              docker_matrix="$full" ;;
+            missing)
+              # Already published = tags on Docker Hub; (re)build the rest plus
+              # the newest N as a safety net.
+              have="$(bash .github/scripts/dockerhub-tags.sh "$IMAGE_NAME")"
+              docker_matrix="$(printf '%s' "$full" | jq -c --argjson have "$have" --argjson n "$NEWEST_N" \
+                "( $SORT ) as \$s | ( [ \$s[] | select(.spigot | IN(\$have[]) | not) ] + [ limit(\$n; (\$s | reverse | .[])) ] ) | unique_by(.spigot) | $SORT")" ;;
+            *)
+              docker_matrix="$(printf '%s' "$full" | jq -c --arg v "$sel" '[.[] | select(.spigot == $v)]')" ;;
+          esac
 
-  # Run tests.
-  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
-  test:
-    needs: create-matrix
+          # Multi-arch: expand version → (version × arch) on native runners.
+          arch_meta='{"amd64":{"runner":"ubuntu-24.04","nix_system":"x86_64-linux"},"arm64":{"runner":"ubuntu-24.04-arm","nix_system":"aarch64-linux"}}'
+          docker_build_matrix="$(jq -nc --argjson v "$docker_matrix" --argjson meta "$arch_meta" \
+            '[ $v[] as $ver | ($meta | keys[]) as $arch | $ver + {arch: $arch} + $meta[$arch] ]')"
+          arch_list="$(printf '%s' "$arch_meta" | jq -r 'keys | join(" ")')"
 
-    runs-on: ubuntu-latest
+          {
+            echo "docker_matrix=$docker_matrix"
+            echo "docker_build_matrix=$docker_build_matrix"
+            echo "docker_count=$(printf '%s' "$docker_matrix" | jq 'length')"
+            echo "docker_build_count=$(printf '%s' "$docker_build_matrix" | jq 'length')"
+            echo "arch_list=$arch_list"
+            echo "latest=$latest"
+          } >> "$GITHUB_OUTPUT"
+          echo "images: $docker_build_matrix"
+          echo "latest: $latest"
+
+  # Build each image with Nix (the flake bakes the version-correct JRE + the
+  # pinned spigot.jar from spigot-build). streamLayeredImage is single-arch, so
+  # build one tarball per (version × arch) on a native runner; the next job
+  # stitches them into a multi-arch manifest. PR events build but never push.
+  docker-build:
+    needs: matrix
+    if: needs.matrix.outputs.docker_build_count != '0'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.create-matrix.outputs.matrix) }}
+      matrix:
+        include: ${{ fromJson(needs.matrix.outputs.docker_build_matrix) }}
 
-    name: Test Spigot ${{ matrix.spigot }}
+    name: Build spigot:${{ matrix.spigot }} (${{ matrix.arch }})
 
-    # https://github.com/marketplace/actions/build-and-push-docker-images#local-registry
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('**/flake.lock', '**/flake.nix', 'src/entrypoint.sh') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ matrix.arch }}-
+          gc-max-store-size-linux: 5G
+          purge: true
+          purge-prefixes: nix-${{ runner.os }}-${{ matrix.arch }}-
+          purge-created: 0
+          purge-last-accessed: P7D
+          purge-primary-key: never
+
+      - name: Extract Docker labels
+        uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ vars.IMAGE_NAME }}
+          tags: type=raw,value=${{ matrix.spigot }}
+          labels: |
+            maintainer=D3strukt0r <dev@d3strukt0r.dev>
+            org.opencontainers.image.title=Spigot ${{ matrix.spigot }}
+            org.opencontainers.image.description=Spigot Minecraft server ${{ matrix.spigot }} (JDK ${{ matrix.java }})
+
+      - name: Build OCI image with Nix
+        env:
+          LABELS_RAW: ${{ steps.meta.outputs.labels }}
+        run: |
+          set -euo pipefail
+          # metadata-action emits "KEY=VAL\n…"; the flake reads it via fromJSON.
+          # --impure feeds ONLY the labels; the jar + version are pure inputs (the
+          # jar is the pinned spigot-build fetch, the version is the attr path).
+          export DOCKER_LABELS_JSON=$(jq -Rsc '
+            split("\n") | map(select(length > 0))
+            | map(split("=") | { key: .[0], value: (.[1:] | join("=")) })
+            | from_entries
+          ' <<<"$LABELS_RAW")
+          nix build --impure --print-build-logs ".#\"${{ matrix.spigot }}\""
+          cp -L result image.tar
+
+      - name: Generate SBOM (per-arch)
+        run: nix run nixpkgs#syft -- docker-archive:image.tar -o spdx-json=sbom.json
+
+      - name: Upload image + SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-${{ matrix.spigot }}-${{ matrix.arch }}
+          path: |
+            image.tar
+            sbom.json
+          retention-days: 1
+          if-no-files-found: error
+
+  # Per version: stitch the per-arch tarballs into a multi-arch manifest, push it
+  # (tagged with the MC version, plus :latest for the newest), and sign + attest
+  # the SBOMs. Skipped on PRs.
+  docker-manifest:
+    needs: [matrix, docker-build]
+    if: github.event_name != 'pull_request' && needs.matrix.outputs.docker_count != '0'
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.matrix.outputs.docker_matrix) }}
+
+    name: Manifest spigot:${{ matrix.spigot }}
+
     services:
       registry:
-        image: registry:2
+        image: registry:3
         ports:
           - 5000:5000
 
+    env:
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+      ARCH_LIST: ${{ needs.matrix.outputs.arch_list }}
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          buildkitd-config-inline: |
+            [registry."localhost:5000"]
+              http = true
 
-      - name: Prepare
-        id: prep
+      - name: Wait for local registry
         run: |
-          # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          if [ '${{ matrix.spigot }}' = 'latest' ]; then
-              [ "$VERSION" = 'master' ] && VERSION=latest
-              [ "$VERSION" = 'develop' ] && VERSION=nightly
-          else
-              VERSION='${{ matrix.spigot }}'
-          fi
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:5000/v2/ >/dev/null && exit 0
+            sleep 1
+          done
+          echo "registry never came up"; exit 1
 
-          # Strip "v" prefix from tag name
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+      - name: Install skopeo
+        run: sudo apt-get update -y && sudo apt-get install -y --no-install-recommends skopeo
 
-          # Figure out correct MC version
-          if [ "$VERSION" == "latest" ] || [ "$VERSION" == "nightly" ]; then
-              SPIGOT_VERSION=$(curl -s https://hub.spigotmc.org/versions/ | grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' | sed 's/-pre/~pre/' | sort --version-sort | sed 's/~pre/-pre/' | tail -n 1)
-          else
-              SPIGOT_VERSION=$VERSION
-          fi
-
-          echo "::set-output name=version::${VERSION}"
-          echo "::set-output name=spigotVersion::${SPIGOT_VERSION}"
-
-      - name: Setup QEMU
-        id: qemu
-        uses: docker/setup-qemu-action@v1
-        # with:
-        #   # QEMU static binaries Docker image
-        #   image: tonistiigi/binfmt:latest # optional, default is "tonistiigi/binfmt"
-        #   # Platforms to install (e.g. arm64,riscv64,arm)
-        #   platforms: all # optional, default is "all"
-
-      - name: Setup Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
+      - name: Log in to Docker Hub
+        if: vars.DOCKERHUB_USERNAME != '' && env.dockerhub_token != ''
+        uses: docker/login-action@v4
         with:
-          # Buildx version.
-          # version: latest # optional
-          # Sets the builder driver to be used
-          # driver: docker-container # optional, default is "docker-container"
-          # List of additional driver-specific options (eg. image=moby/buildkit:master)
-          driver-opts: network=host # optional
-          # Flags for buildkitd daemon (since buildx v0.3.0)
-          # buildkitd-flags: # optional
-          # Sets up docker build command as an alias to docker buildx
-          # install: false # optional, default is "false"
-          # Switch to this builder instance
-          # use: true # optional, default is "true"
-          # Optional address for docker socket or context from docker context ls
-          # endpoint: # optional
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # https://github.com/marketplace/actions/build-and-push-docker-images#leverage-github-cache
-      - name: Cache Docker layers
-        uses: actions/cache@v2
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Download this version's per-arch artifacts
+        uses: actions/download-artifact@v8
         with:
-          # A list of files, directories, and wildcard patterns to cache and restore. See @actions/glob for supported patterns.
-          path: /tmp/.buildx-cache
-          # An explicit key for restoring and saving the cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}-${{ steps.prep.outputs.spigotVersion }}
-          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
-          restore-keys: |
-            ${{ runner.os }}-buildx-${{ github.sha }}-
-            ${{ runner.os }}-buildx-
+          pattern: image-${{ matrix.spigot }}-*
+          path: artifacts
 
-      - name: Build
-        if: steps.prep.outputs.version == 'latest' || steps.prep.outputs.version == 'nightly'
-        uses: docker/build-push-action@v2
-        with:
-          # Builder instance (see setup-buildx action)
-          # builder: # optional
-          # Build's context is the set of files located in the specified PATH or URL
-          # context: . # optional, default is git context
-          # Path to the Dockerfile
-          # file: ./Dockerfile # optional, default is "Dockerfile"
-          # List of build-time variables
-          build-args: SPIGOT_URL=https://github.com/D3strukt0r/spigot-build/releases/latest/download/spigot.jar # optional
-          # List of metadata for an image
-          # labels: # optional
-          # List of tags
-          tags: localhost:5000/name/app1:latest # optional
-          # Always attempt to pull a newer version of the image
-          # pull: false # optional, default is "false"
-          # Sets the target stage to build
-          # target: # optional
-          # List of extra privileged entitlement (eg. network.host,security.insecure)
-          # allow: # optional
-          # Do not use cache when building the image
-          # no-cache: false # optional, default is "false"
-          # List of target platforms for build
-          platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/386,linux/arm/v7,linux/arm/v6 # optional
-          # Load is a shorthand for --output=type=docker
-          # load: false # optional, default is "false"
-          # Push is a shorthand for --output=type=registry
-          push: true # optional, default is "false"
-          # List of output destinations (format: type=local,dest=path)
-          # outputs: # optional
-          # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache # optional
-          # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache # optional
-          # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
-          # secrets: # optional
-
-      - name: Build
-        if: "!(steps.prep.outputs.version == 'latest' || steps.prep.outputs.version == 'nightly')"
-        uses: docker/build-push-action@v2
-        with:
-          # Builder instance (see setup-buildx action)
-          # builder: # optional
-          # Build's context is the set of files located in the specified PATH or URL
-          # context: . # optional, default is git context
-          # Path to the Dockerfile
-          # file: ./Dockerfile # optional, default is "Dockerfile"
-          # List of build-time variables
-          build-args: SPIGOT_VERSION=${{ steps.prep.outputs.version }} # optional
-          # List of metadata for an image
-          # labels: # optional
-          # List of tags
-          tags: localhost:5000/name/app1:latest # optional
-          # Always attempt to pull a newer version of the image
-          # pull: false # optional, default is "false"
-          # Sets the target stage to build
-          # target: # optional
-          # List of extra privileged entitlement (eg. network.host,security.insecure)
-          # allow: # optional
-          # Do not use cache when building the image
-          # no-cache: false # optional, default is "false"
-          # List of target platforms for build
-          platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/386,linux/arm/v7,linux/arm/v6 # optional
-          # Load is a shorthand for --output=type=docker
-          # load: false # optional, default is "false"
-          # Push is a shorthand for --output=type=registry
-          push: true # optional, default is "false"
-          # List of output destinations (format: type=local,dest=path)
-          # outputs: # optional
-          # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache # optional
-          # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache # optional
-          # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
-          # secrets: # optional
-
-      - name: Inspect
+      - name: Stage per-arch tarballs into the local registry
+        id: stage
         run: |
-          docker buildx imagetools inspect localhost:5000/name/app1:latest
+          set -euo pipefail
+          DIGESTS='{}'
+          for arch in $ARCH_LIST; do
+            archive="artifacts/image-${{ matrix.spigot }}-${arch}/image.tar"
+            test -f "$archive" || { echo "missing $archive"; exit 1; }
+            skopeo copy --dest-tls-verify=false \
+              docker-archive:"$archive" \
+              docker://localhost:5000/staging:${{ matrix.spigot }}-${arch}
+            d=$(skopeo inspect --tls-verify=false \
+                  docker://localhost:5000/staging:${{ matrix.spigot }}-${arch} \
+                  --format '{{.Digest}}')
+            DIGESTS=$(jq -nc --argjson cur "$DIGESTS" --arg a "$arch" --arg d "$d" '$cur + {($a): $d}')
+            echo "Staged ${arch} → ${d}"
+          done
+          echo "digests=$DIGESTS" >> "$GITHUB_OUTPUT"
+          jq -nc --argjson d "$DIGESTS" '$d' > "digests-${{ matrix.spigot }}.json"
 
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
-  deploy:
-    # Ensure test job passes before pushing image.
-    needs: [create-matrix, test]
+      - name: Upload digest map
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.spigot }}
+          path: digests-${{ matrix.spigot }}.json
+          retention-days: 1
+          if-no-files-found: error
 
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop') && github.repository == 'D3strukt0r/docker-spigot'
+      - name: Resolve tags
+        uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ vars.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.spigot }}
+            type=raw,value=latest,enable=${{ matrix.spigot == needs.matrix.outputs.latest }}
+
+      - name: Create + push manifest list
+        if: vars.DOCKERHUB_USERNAME != '' && env.dockerhub_token != ''
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
+          DIGESTS: ${{ steps.stage.outputs.digests }}
+        run: |
+          set -euo pipefail
+          ANN_FLAGS=()
+          while IFS= read -r ann; do [ -z "$ann" ] && continue; ANN_FLAGS+=("--annotation" "$ann"); done <<< "$ANNOTATIONS"
+          TAG_FLAGS=()
+          while IFS= read -r tag; do [ -z "$tag" ] && continue; TAG_FLAGS+=("-t" "$tag"); done <<< "$TAGS"
+          SRC_REFS=()
+          for arch in $ARCH_LIST; do
+            d=$(jq -r --arg a "$arch" '.[$a]' <<<"$DIGESTS")
+            SRC_REFS+=("localhost:5000/staging@${d}")
+          done
+          docker buildx imagetools create "${ANN_FLAGS[@]}" "${TAG_FLAGS[@]}" "${SRC_REFS[@]}"
+
+      - name: Sign per-arch images + attach SBOMs
+        if: vars.DOCKERHUB_USERNAME != '' && env.dockerhub_token != ''
+        env:
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          DIGESTS: ${{ steps.stage.outputs.digests }}
+        run: |
+          set -euo pipefail
+          for arch in $ARCH_LIST; do
+            d=$(jq -r --arg a "$arch" '.[$a]' <<<"$DIGESTS")
+            cosign sign --yes "${IMAGE_NAME}@${d}"
+            cosign attest --yes --predicate "artifacts/image-${{ matrix.spigot }}-${arch}/sbom.json" \
+              --type spdxjson "${IMAGE_NAME}@${d}"
+          done
+
+      - name: Sign the manifest list
+        if: vars.DOCKERHUB_USERNAME != '' && env.dockerhub_token != ''
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            DIGEST=$(docker buildx imagetools inspect "$tag" --format '{{json .Manifest}}' | jq -r .digest)
+            cosign sign --yes "${tag}@${DIGEST}"
+          done <<< "$TAGS"
+
+  # SLSA build provenance per published (version × arch) digest.
+  docker-attest:
+    needs: [matrix, docker-manifest]
+    if: github.event_name != 'pull_request' && needs.matrix.outputs.docker_build_count != '0'
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      packages: write
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.create-matrix.outputs.matrix) }}
+      matrix:
+        include: ${{ fromJson(needs.matrix.outputs.docker_build_matrix) }}
 
-    name: Push Spigot ${{ matrix.spigot }}
+    name: Attest spigot:${{ matrix.spigot }} (${{ matrix.arch }})
+
+    env:
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    steps:
+      - name: Log in to Docker Hub
+        if: vars.DOCKERHUB_USERNAME != '' && env.dockerhub_token != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Download digest map
+        uses: actions/download-artifact@v8
+        with:
+          name: digests-${{ matrix.spigot }}
+          path: .
+
+      - name: Resolve this arch's digest
+        id: d
+        run: |
+          set -euo pipefail
+          digest=$(jq -r --arg a "${{ matrix.arch }}" '.[$a]' "digests-${{ matrix.spigot }}.json")
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest SLSA provenance
+        if: vars.DOCKERHUB_USERNAME != '' && env.dockerhub_token != ''
+        uses: actions/attest@v4
+        with:
+          subject-name: docker.io/${{ vars.IMAGE_NAME }}
+          subject-digest: ${{ steps.d.outputs.digest }}
+          push-to-registry: true
+
+  # Record which commit produced each published image: one git tag per built
+  # version, on the build commit, force-moved when the version is rebuilt on a
+  # newer commit. The registry is the source of truth for "what's published"
+  # (see the matrix's `missing` selector); these tags are for provenance.
+  tag:
+    needs: [matrix, docker-manifest]
+    if: github.event_name != 'pull_request' && needs.matrix.outputs.docker_count != '0' && vars.DOCKERHUB_USERNAME != ''
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    name: Tag build commit
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
-      - name: Prepare
-        id: prep
+      - name: Configure git
         run: |
-          DOCKER_IMAGE="$(echo "${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME" | tr '[A-Z]' '[a-z]')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-
-          # Rename branches which stand for latest or similar
-          if [ '${{ matrix.spigot }}' = 'latest' ]; then
-            if [ "$VERSION" = '${{ github.event.repository.default_branch }}' ]; then
-              VERSION=latest
-            elif [ "$VERSION" = 'develop' ]; then
-              VERSION=nightly
-            else
-              # Rename my/branch to my-branch
-              VERSION=$(echo "$VERSION" | sed -r 's#/+#-#g')
-            fi
-          else
-            VERSION='${{ matrix.spigot }}'
-          fi
-
-          # Strip "v" prefix from tag name
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            VERSION=$(echo $VERSION | sed -e 's/^v//')
-          fi
-
-          # Figure out correct MC version
-          if [ "$VERSION" == "latest" ] || [ "$VERSION" == "nightly" ]; then
-            SPIGOT_VERSION=$(
-              curl -s https://hub.spigotmc.org/versions/ |
-              grep -E "*[0-9]\.[0-9]{1,2}(\.[0-9]){0,}?(-pre[0-9]){0,}" -o | uniq | sed 's/\.$//' |
-              sed 's/-pre/~pre/' |
-              sort --version-sort |
-              sed 's/~pre/-pre/' |
-              tail -n 1
-            )
-          else
-            SPIGOT_VERSION=$VERSION
-          fi
-
-          # Create tags
-          TAGS="${DOCKER_IMAGE}:${VERSION}"
-
-          echo "::set-output name=version::${VERSION}"
-          echo "::set-output name=spigotVersion::${SPIGOT_VERSION}"
-          echo "::set-output name=tags::${TAGS}"
-          echo "::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-
-      - name: Setup QEMU
-        id: qemu
-        uses: docker/setup-qemu-action@v1
-        # with:
-        #   # QEMU static binaries Docker image
-        #   image: tonistiigi/binfmt:latest # optional, default is "tonistiigi/binfmt"
-        #   # Platforms to install (e.g. arm64,riscv64,arm)
-        #   platforms: all # optional, default is "all"
-
-      - name: Setup Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
-        with:
-          # Buildx version.
-          version: latest # optional
-          # Sets the builder driver to be used
-          # driver: docker-container # optional, default is "docker-container"
-          # List of additional driver-specific options (eg. image=moby/buildkit:master)
-          # driver-opts: | # optional
-          #   image=moby/buildkit:master
-          #   network=host
-          # Flags for buildkitd daemon (since buildx v0.3.0)
-          # buildkitd-flags: # optional
-          # Sets up docker build command as an alias to docker buildx
-          # install: false # optional, default is "false"
-          # Switch to this builder instance
-          # use: true # optional, default is "true"
-          # Optional address for docker socket or context from docker context ls
-          # endpoint: # optional
-
-      # https://github.com/marketplace/actions/build-and-push-docker-images#leverage-github-cache
-      - name: Cache Docker layers
-        uses: actions/cache@v2
-        with:
-          # A list of files, directories, and wildcard patterns to cache and restore. See @actions/glob for supported patterns.
-          path: /tmp/.buildx-cache
-          # An explicit key for restoring and saving the cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}-${{ steps.prep.outputs.spigotVersion }}
-          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
-          restore-keys: |
-            ${{ runner.os }}-buildx-${{ github.sha }}-
-            ${{ runner.os }}-buildx-
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          # Server address of Docker registry. If not set then will default to Docker Hub
-          # registry: # optional, default is docker registry
-          # Username used to log against the Docker registry
-          username: ${{ secrets.DOCKER_USERNAME }}
-          # Password or personal access token used to log against the Docker registry
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          # Log out from the Docker registry at the end of a job
-          # logout: true # optional, default is "true"
-
-      - name: Build and push
-        if: steps.prep.outputs.version == 'latest' || steps.prep.outputs.version == 'nightly'
-        id: docker_build_api_php
-        uses: docker/build-push-action@v2
-        with:
-          # Builder instance (see setup-buildx action)
-          # builder:
-          # Build's context is the set of files located in the specified PATH or URL
-          # context: . # default is "<Git context>"
-          # Path to the Dockerfile
-          # file: ./Dockerfile # default is "Dockerfile"
-          # List of build-time variables
-          build-args: SPIGOT_URL=https://github.com/D3strukt0r/spigot-build/releases/latest/download/spigot.jar # optional
-          # List of metadata for an image
-          # https://github.com/opencontainers/image-spec/blob/master/annotations.md
-          labels: | # optional
-            maintainer=Manuele Vaccari <manuele.vaccari@gmail.com>
-            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
-            org.opencontainers.image.url=${{ github.event.repository.html_url }}
-            org.opencontainers.image.source=${{ github.event.repository.clone_url }}
-            org.opencontainers.image.version=${{ steps.prep.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.title=${{ github.event.repository.name }}
-            org.opencontainers.image.description=${{ github.event.repository.description }}
-            org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
-          # List of tags
-          tags: ${{ steps.prep.outputs.tags }}
-          # Always attempt to pull a newer version of the image
-          # pull: false # optional, default is "false"
-          # Sets the target stage to build
-          # target: # optional
-          # List of extra privileged entitlement (eg. network.host,security.insecure)
-          # allow: # optional
-          # Do not use cache when building the image
-          # no-cache: false # optional, default is "false"
-          # List of target platforms for build
-          platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/386,linux/arm/v7,linux/arm/v6 # optional
-          # Load is a shorthand for --output=type=docker
-          # load: false # optional, default is "false"
-          # Push is a shorthand for --output=type=registry
-          push: ${{ github.event_name != 'pull_request' }} # optional, default is "false"
-          # List of output destinations (format: type=local,dest=path)
-          # outputs: # optional
-          # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache # optional
-          # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache # optional
-          # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
-          # secrets: # optional
-
-      - name: Build and push
-        if: "!(steps.prep.outputs.version == 'latest' || steps.prep.outputs.version == 'nightly')"
-        id: docker_build_api_nginx
-        uses: docker/build-push-action@v2
-        with:
-          # Builder instance (see setup-buildx action)
-          # builder:
-          # Build's context is the set of files located in the specified PATH or URL
-          # context: . # default is "<Git context>"
-          # Path to the Dockerfile
-          # file: ./Dockerfile # default is "Dockerfile"
-          # List of build-time variables
-          build-args: SPIGOT_VERSION=${{ steps.prep.outputs.version }} # optional
-          # List of metadata for an image
-          # https://github.com/opencontainers/image-spec/blob/master/annotations.md
-          labels: | # optional
-            maintainer=Manuele Vaccari <manuele.vaccari@gmail.com>
-            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
-            org.opencontainers.image.url=${{ github.event.repository.html_url }}
-            org.opencontainers.image.source=${{ github.event.repository.clone_url }}
-            org.opencontainers.image.version=${{ steps.prep.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.title=${{ github.event.repository.name }}
-            org.opencontainers.image.description=${{ github.event.repository.description }}
-            org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
-          # List of tags
-          tags: ${{ steps.prep.outputs.tags }}
-          # Always attempt to pull a newer version of the image
-          # pull: false # optional, default is "false"
-          # Sets the target stage to build
-          # target: # optional
-          # List of extra privileged entitlement (eg. network.host,security.insecure)
-          # allow: # optional
-          # Do not use cache when building the image
-          # no-cache: false # optional, default is "false"
-          # List of target platforms for build
-          platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x,linux/386,linux/arm/v7,linux/arm/v6 # optional
-          # Load is a shorthand for --output=type=docker
-          # load: false # optional, default is "false"
-          # Push is a shorthand for --output=type=registry
-          push: ${{ github.event_name != 'pull_request' }} # optional, default is "false"
-          # List of output destinations (format: type=local,dest=path)
-          # outputs: # optional
-          # List of external cache sources (eg. type=local,src=path/to/dir)
-          cache-from: type=local,src=/tmp/.buildx-cache # optional
-          # List of cache export destinations (eg. type=local,dest=path/to/dir)
-          cache-to: type=local,dest=/tmp/.buildx-cache # optional
-          # List of secrets to expose to the build (eg. key=value, GIT_AUTH_TOKEN=mytoken)
-          # secrets: # optional
+      - name: Tag built versions on this commit
+        env:
+          MATRIX: ${{ needs.matrix.outputs.docker_matrix }}
+        run: |
+          set -euo pipefail
+          mapfile -t versions < <(printf '%s' "$MATRIX" | jq -r '.[].spigot')
+          [ "${#versions[@]}" -gt 0 ] || { echo "no versions to tag"; exit 0; }
+          for v in "${versions[@]}"; do
+            git tag -f "$v" "$GITHUB_SHA"
+          done
+          # Distinct tag refs → a single force push moves any that were built on
+          # an older commit. Tag pushes via GITHUB_TOKEN don't re-trigger CI.
+          git push -f origin "${versions[@]}"
+          echo "Tagged ${GITHUB_SHA} with: ${versions[*]}"

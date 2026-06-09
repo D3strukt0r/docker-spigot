@@ -1,40 +1,44 @@
 name: Update Docker Hub Description
 
-env:
-  IMAGE_NAME: spigot
-
 on:
   push:
     branches:
       - master
     paths:
-      - README.md
       - .github/workflows/dockerhub-description.yml
-
+      - README.md
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   dockerHubDescription:
+    name: Update Docker Hub Description
     runs-on: ubuntu-latest
+    # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#example-using-secrets
+
+    env:
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Prepare
         id: prep
         run: |
-          echo "::set-output name=repository::$(echo "${{ secrets.DOCKER_USERNAME }}/$IMAGE_NAME" | tr '[A-Z]' '[a-z]')"
+          echo "repository=$(echo "${{ vars.IMAGE_NAME }}" | tr '[A-Z]' '[a-z]')" >> $GITHUB_OUTPUT
 
-      - name: Update README for image on Docker Hub
-        uses: peter-evans/dockerhub-description@v2
+      - name: Update Docker Hub Description
+        uses: peter-evans/dockerhub-description@v5
+        if: ${{ !env.ACT && vars.DOCKERHUB_USERNAME != '' && env.dockerhub_token != '' }}
         with:
-          # Docker Hub username. If updating a Docker Hub repository belonging to an organization, this user must have Admin permissions for the repository.
-          username: ${{ secrets.DOCKER_USERNAME }}
-          # Docker Hub password.
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          # Docker Hub repository in the format <namespace>/<name>.
-          repository: ${{ steps.prep.outputs.repository }} # optional, default is "github.repository"
-          # Docker Hub repository short description. Input exceeding 100 characters will be truncated.
-          short-description: ${{ github.event.repository.description }} # optional
-          # Path to the repository readme.
-          # readme-filepath: ./README.md # optional, default is "./README.md"
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          # OAT (Organisation Access Token) doesn't work yet, use PAT (Personal Access Token)
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ steps.prep.outputs.repository }}
+          # Input exceeding 100 characters will be truncated.
+          short-description: ${{ github.event.repository.description }}
+          # readme-filepath: ./README-DOCKERHUB.md
+          enable-url-completion: true
