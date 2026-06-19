@@ -171,7 +171,7 @@ jobs:
           images: ${{ vars.IMAGE_NAME }}
           tags: type=raw,value=${{ matrix.spigot }}
           labels: |
-            maintainer=D3strukt0r <dev@d3strukt0r.dev>
+            org.opencontainers.image.authors=D3strukt0r <dev@d3strukt0r.dev>
             org.opencontainers.image.title=Spigot ${{ matrix.spigot }}
             org.opencontainers.image.description=Spigot Minecraft server ${{ matrix.spigot }} (JDK ${{ matrix.java }})
 

@@ -7,7 +7,7 @@ Use the Minecraft Spigot server as a Docker container
 [![Docker Stars](https://img.shields.io/docker/stars/d3strukt0r/spigot)][docker]
 [![Docker Pulls](https://img.shields.io/docker/pulls/d3strukt0r/spigot)][docker]
 
-[![GH Action Docker](https://github.com/D3strukt0r/docker-spigot/actions/workflows/docker.yml/badge.svg)][gh-action]
+[![GH Action Docker](https://github.com/Team-MaRo/docker-spigot/actions/workflows/docker.yml/badge.svg)][gh-action]
 [![Codacy grade](https://img.shields.io/codacy/grade/b674b9fdcd8a429ca863e975e685cbd1/master)][codacy]
 
 ## Getting Started
@@ -588,7 +588,7 @@ From [MCStats](http://mcstats.org/global/):
 
 ## Find Us
 
-- [GitHub](https://github.com/D3strukt0r/docker-spigot)
+- [GitHub](https://github.com/Team-MaRo/docker-spigot)
 - [Docker Hub](https://hub.docker.com/r/d3strukt0r/spigot)
 
 ## Contributing
@@ -641,7 +641,7 @@ This project uses code from the following libraries:
 [docker]: https://hub.docker.com/r/d3strukt0r/spigot
 [codacy]: https://www.codacy.com/manual/D3strukt0r/docker-spigot
 [gh-action]: https://github.com/D3strukt0r/docker-spigot/actions/workflows/docker.yml
-[gh-releases]: https://github.com/D3strukt0r/docker-spigot/releases
-[gh-contributors]: https://github.com/D3strukt0r/docker-spigot/contributors
+[gh-releases]: https://github.com/Team-MaRo/docker-spigot/releases
+[gh-contributors]: https://github.com/Team-MaRo/docker-spigot/contributors
 [contributing]: https://github.com/Team-MaRo/.github/blob/master/CONTRIBUTING.md
 [code-of-conduct]: https://github.com/Team-MaRo/.github/blob/master/CODE_OF_CONDUCT.md
