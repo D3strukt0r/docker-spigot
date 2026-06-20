@@ -156,6 +156,12 @@
                   pkgs.gnugrep
                   pkgs.yq-go
                   jre
+                  # libudev for the bundled oshi/JNA. Listed as a content so its lib/
+                  # is merged into /lib alongside the JRE's libs (same as every other
+                  # package here) — oshi then finds it by name with no env var, flag,
+                  # or hand-made symlink. Otherwise it would sit only in /nix/store,
+                  # which nothing scans. Without it oshi logs "Did not find udev".
+                  pkgs.systemdLibs
                   entrypoint
                   console
                   jarLayer

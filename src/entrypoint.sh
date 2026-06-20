@@ -199,6 +199,13 @@ java_args=()
 [ -n "$MAX_MEMORY" ]  && java_args+=( "-Xmx${MAX_MEMORY}" )
 [ "${#preset_flags[@]}" -gt 0 ] && java_args+=( "${preset_flags[@]}" )
 if [ -n "$JVM_OPTS" ]; then read -r -a _o <<< "$JVM_OPTS"; java_args+=( "${_o[@]}" ); fi
+# Silence the "restricted method … System::load" warning the bundled oshi/JNA
+# triggers: System::load became a restricted method in JDK 24 (JEP 472), which
+# warns at runtime unless native access is granted. The flag itself exists from
+# JDK 17 (8/11 reject it), but the warning only appears on 24+, so gate there —
+# on our tiers only the modern JDK (25) qualifies. libudev itself is found in
+# /lib (systemdLibs is a flake content) — no -Djna.library.path needed.
+[ "$JAVA_MAJOR" -ge 24 ] 2>/dev/null && java_args+=( --enable-native-access=ALL-UNNAMED )
 java_args+=( -jar /opt/spigot.jar --nogui )
 [ "${#server_args[@]}" -gt 0 ] && java_args+=( "${server_args[@]}" )
 
