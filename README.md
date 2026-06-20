@@ -185,8 +185,12 @@ it at a path like `/run/secrets/<something>`.
 | `MAX_MEMORY` | `${MEMORY}` | Override just `-Xmx`. |
 | `JVM_FLAGS_PRESET` | `aikars` | GC/tuning preset: `aikars`, `velocity`, `meowice` (Java 25+ only), or `none`. |
 | `JVM_OPTS` | _(empty)_ | Extra JVM flags, appended after the preset so they win (e.g. `-Xmx3G`). |
-| `SERVER_ARGS` | _(empty)_ | Extra args passed to the server after `--nogui`. |
 | `BUNGEECORD` | `false` | Shortcut: when `true`, sets `online-mode=false`, `spigot.yml settings.bungeecord=true`, `bukkit.yml settings.connection-throttle=-1`. |
+
+To pass arguments to the server itself, append them to the container command — if the first one
+starts with `-` they're forwarded after `--nogui` (e.g.
+`docker run … d3strukt0r/spigot --world-dir worlds`). A non-option command such as `bash` runs as an
+override instead (and bypasses the EULA gate): `docker run -it … d3strukt0r/spigot bash`.
 
 ##### JVM flag presets
 

@@ -64,7 +64,7 @@ env_to_path() {
     local rest="$1" seg path=""
     while IFS= read -r seg; do
         [ -z "$seg" ] && continue
-        seg="$(printf '%s' "$seg" | tr 'A-Z_' 'a-z-')"
+        seg="$(printf '%s' "$seg" | tr '[:upper:]_' '[:lower:]-')"
         path="${path}[\"${seg}\"]"
     done <<< "${rest//__/$'\n'}"
     printf '%s' "$path"
@@ -96,7 +96,7 @@ set_prop() { yq -p props -o props --properties-separator='=' -i ".[\"$2\"] = \"$
 # ---------------------------------------------------------------------------
 note 'Spigot entrypoint starting'
 
-for v in EULA BUNGEECORD MEMORY INIT_MEMORY MAX_MEMORY JVM_OPTS JVM_FLAGS_PRESET SERVER_ARGS; do
+for v in EULA BUNGEECORD MEMORY INIT_MEMORY MAX_MEMORY JVM_OPTS JVM_FLAGS_PRESET; do
     file_env "$v"
 done
 
@@ -109,8 +109,16 @@ done
 : "${MAX_MEMORY:=${MEMORY}}"
 : "${JVM_OPTS:=}"
 : "${JVM_FLAGS_PRESET:=aikars}"
-: "${SERVER_ARGS:=}"
 : "${JAVA_MAJOR:=0}"
+
+# Trailing args whose first token is an option (e.g. `--world-dir`) are passed
+# straight to Spigot — no SERVER_ARGS-style env needed. A non-option first arg
+# instead falls through to the override below (e.g. `docker run <image> bash`).
+server_args=()
+if [ "$#" -gt 0 ] && [ "${1#-}" != "$1" ]; then
+    server_args=( "$@" )
+    set --
+fi
 
 # Defaults applied before the generic render, so an explicit MC__/SPIGOT__/
 # BUKKIT__ var can still override them.
@@ -192,21 +200,22 @@ java_args=()
 [ "${#preset_flags[@]}" -gt 0 ] && java_args+=( "${preset_flags[@]}" )
 if [ -n "$JVM_OPTS" ]; then read -r -a _o <<< "$JVM_OPTS"; java_args+=( "${_o[@]}" ); fi
 java_args+=( -jar /opt/spigot.jar --nogui )
-if [ -n "$SERVER_ARGS" ]; then read -r -a _s <<< "$SERVER_ARGS"; java_args+=( "${_s[@]}" ); fi
+[ "${#server_args[@]}" -gt 0 ] && java_args+=( "${server_args[@]}" )
 
 # Record the fully-resolved env so `docker exec -it <c> sh -l` can see it. A bare
 # `docker exec` is a sibling of PID 1 and only inherits the container's CONFIGURED
 # env (image ENV + run -e), never these runtime-computed defaults. Best-effort:
 # a non-writable /etc/profile.d must never block startup.
 { for v in EULA BUNGEECORD MEMORY INIT_MEMORY MAX_MEMORY JVM_OPTS \
-           JVM_FLAGS_PRESET SERVER_ARGS JAVA_MAJOR; do
+           JVM_FLAGS_PRESET JAVA_MAJOR; do
     printf 'export %s=%q\n' "$v" "${!v}"
   done; } > /etc/profile.d/spigot-env.sh 2>/dev/null || true
 
-# Full escape hatch: a CMD/args override replaces the launch entirely. It sits
-# before the EULA gate on purpose — `docker run <image> bash` (or any other
-# override) should drop you in without EULA=true; the gate guards the server
-# launch, not entering the container.
+# Full escape hatch: a non-option CMD override replaces the launch entirely. It
+# sits before the EULA gate on purpose — `docker run <image> bash` should drop you
+# in without EULA=true; the gate guards the server launch, not entering the
+# container. Option-leading args were captured above as server args, so only a
+# non-option first arg reaches here.
 if [ "$#" -gt 0 ]; then
     note "Running override command: $*"
     exec "$@"
