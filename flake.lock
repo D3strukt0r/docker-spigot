@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781377154,
-        "narHash": "sha256-QV8ieTu3OLLYf0F5Y2E9YPOHFsByh7XO9EjW5zjpOyI=",
+        "lastModified": 1781942658,
+        "narHash": "sha256-vUokrmfsy3VMKM7tzaUusAnE3a38xvJFgJGi0FAGBnk=",
         "owner": "Team-MaRo",
         "repo": "mc-server-init",
-        "rev": "7ce38b8ceec62d882b43dc6feea936c7068c88a4",
+        "rev": "a22607101ee14bbfda1fe66d60e0c179fb95e4e3",
         "type": "github"
       },
       "original": {
@@ -42,11 +42,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1781216227,
-        "narHash": "sha256-9mUW6gNwoN2SWc/l0fW4svPNOulXLl8ijqKyeSOGgJE=",
+        "lastModified": 1782116945,
+        "narHash": "sha256-G3tw/IXmaH6IQ2upZvhuN9sG8CkuX+BLuJDpE8hz0Ds=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "a0374025a863d007d98e3297f6aa46cc3141c2f0",
+        "rev": "34268251cf5547d39063f2c5ea9a196246f7f3a6",
         "type": "github"
       },
       "original": {
@@ -71,11 +71,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781971355,
-        "narHash": "sha256-MJBedDxx1H+P/oe7HqBMhGpGybC1z0TC6K6MbFNc6O8=",
+        "lastModified": 1782164420,
+        "narHash": "sha256-T9M4Q8hg+i+3wXq+tUxcc65ufHe6z5QwOid+1sjwhmo=",
         "owner": "Team-MaRo",
         "repo": "spigot-build",
-        "rev": "cd214819ad61af34896c39cd7f5aa0afe61e57ca",
+        "rev": "5eeafd1aab4439b7e8b1db5b57046340397723bb",
         "type": "github"
       },
       "original": {
