@@ -415,6 +415,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # PAT (not GITHUB_TOKEN) for the tag push below. A version tag is
+          # force-moved onto the build commit; when that commit touches a file
+          # under .github/workflows/, the GITHUB_TOKEN GitHub App is refused
+          # ("without `workflows` permission") — a permission GITHUB_TOKEN can't
+          # be granted. The PAT carries workflow scope. No tag trigger exists, so
+          # this still won't re-trigger CI.
+          token: ${{ secrets.GH_PAT }}
 
       - name: Configure git
         run: |
@@ -432,6 +440,6 @@ jobs:
             git tag -f "$v" "$GITHUB_SHA"
           done
           # Distinct tag refs → a single force push moves any that were built on
-          # an older commit. Tag pushes via GITHUB_TOKEN don't re-trigger CI.
+          # an older commit. No `tags:` trigger exists, so these don't re-trigger CI.
           git push -f origin "${versions[@]}"
           echo "Tagged ${GITHUB_SHA} with: ${versions[*]}"
