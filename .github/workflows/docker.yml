@@ -9,11 +9,11 @@ on:
     - cron: '30 9 * * *' # Daily 09:30 UTC
 
   # Manual builds. Selector mirrors spigot-build: 'latest', 'all', 'missing'
-  # (not-yet-pushed + newest N), or a specific version.
+  # (not-yet-pushed + newest N), a specific version, or a comma-separated list.
   workflow_dispatch:
     inputs:
       version:
-        description: "Images to build: 'latest', 'all', 'missing', or a specific version (e.g. 26.1.2)"
+        description: "Images to build: 'latest', 'all', 'missing', a specific version (e.g. 26.1.2), or a comma-separated list (e.g. 1.17,1.17.1)"
         required: true
         default: "latest"
       newest_n:
@@ -112,7 +112,12 @@ jobs:
               docker_matrix="$(printf '%s' "$full" | jq -c --argjson have "$have" --argjson n "$NEWEST_N" \
                 "( $SORT ) as \$s | ( [ \$s[] | select(.spigot | IN(\$have[]) | not) ] + [ limit(\$n; (\$s | reverse | .[])) ] ) | unique_by(.spigot) | $SORT")" ;;
             *)
-              docker_matrix="$(printf '%s' "$full" | jq -c --arg v "$sel" '[.[] | select(.spigot == $v)]')" ;;
+              # One version or a comma-separated list, e.g. "1.17" or
+              # "1.17,1.17.1" (spaces after commas tolerated). Unknown versions
+              # are silently skipped (not in .#imageMatrix).
+              want="${sel// /}"
+              docker_matrix="$(printf '%s' "$full" | jq -c --arg v "$want" \
+                "(\$v | split(\",\")) as \$want | [ .[] | select(.spigot as \$s | \$want | index(\$s) != null) ] | $SORT")" ;;
           esac
 
           # Multi-arch: expand version → (version × arch) on native runners.
