@@ -1,10 +1,12 @@
 name: Docker
 
 on:
-  # Defensive weekly rebuild of the 2 newest versions (new jars normally arrive
-  # as a spigot-build flake-input bump — see push below).
+  # Defensive daily safety-net rebuild of the newest versions (from the
+  # committed flake.lock). Fresh jars arrive as a flake.lock bump on the push
+  # trigger below — committed on-demand by refresh-jars.yml (dispatched by
+  # spigot-build right after it publishes) or by Dependabot.
   schedule:
-    - cron: '30 9 * * 1' # Mondays 09:30 UTC
+    - cron: '30 9 * * *' # Daily 09:30 UTC
 
   # Manual builds. Selector mirrors spigot-build: 'latest', 'all', 'missing'
   # (not-yet-pushed + newest N), or a specific version.
@@ -19,8 +21,10 @@ on:
         required: false
         default: "2"
 
-  # Image source OR the pinned jar set changed → rebuild. flake.lock covers the
-  # Dependabot `nix flake update spigot-build` bump that brings in new jars.
+  # Image source OR the pinned jar set changed → rebuild. The flake.lock path is
+  # the PRIMARY fresh-jar trigger: refresh-jars.yml commits a `nix flake update
+  # spigot-build` bump on-demand (dispatched by spigot-build after it publishes),
+  # and Dependabot does the same on its own cadence. Both land here as a push.
   push:
     branches:
       - master
@@ -86,6 +90,10 @@ jobs:
           case "$event" in
             pull_request)      sel=latest ;;
             schedule)          sel=newest; NEWEST_N=2 ;;
+            # A flake.lock bump (refresh-jars.yml / Dependabot) may add brand-new
+            # versions, not just bump the newest — so build everything missing
+            # from Docker Hub plus the newest N, not only 'latest'.
+            push)              sel=missing; NEWEST_N=2 ;;
             workflow_dispatch) sel="${INPUT_VERSION:-latest}" ;;
             *)                 sel=latest ;;
           esac

@@ -37,8 +37,9 @@ There is no app source code — this repo is **CI/CD + a Docker entrypoint**. Th
 
 | Path | Role |
 |---|---|
-| `.github/workflows/docker.yml` | `matrix` (versions × JDK from `.#imageMatrix`; `workflow_dispatch` selector `latest`/`all`/`missing`/specific, default `latest`, `+newest_n` — `missing` diffs against the tags already on Docker Hub via `dockerhub-tags.sh`; the schedule rebuilds the 2 newest) → `docker-build` (Nix image per version × arch via `nix build .#"<ver>"` + SBOM) → `docker-manifest` (multi-arch manifest, push, cosign sign/attest) → `docker-attest` (SLSA provenance) → `tag` (one git tag per built version on the build commit, force-moved on rebuild — provenance, not releases). **No jar building** — that's spigot-build. |
-| `.github/workflows/check-outdated.yml` | Weekly watchdog over the newest released version's **image**: pulls + boots it (StopOnStart plugin) and, if missing/outdated/broken, dispatches `docker.yml`. Newest version from `.#imageMatrix`. Also the keepalive (re-arms the schedules). |
+| `.github/workflows/docker.yml` | `matrix` (versions × JDK from `.#imageMatrix`; `workflow_dispatch` selector `latest`/`all`/`missing`/specific, default `latest`, `+newest_n` — `missing` diffs against the tags already on Docker Hub via `dockerhub-tags.sh`; the **daily** schedule rebuilds the 2 newest, and a **push that changes `flake.lock`** builds everything `missing`) → `docker-build` (Nix image per version × arch via `nix build .#"<ver>"` + SBOM) → `docker-manifest` (multi-arch manifest, push, cosign sign/attest) → `docker-attest` (SLSA provenance) → `tag` (one git tag per built version on the build commit, force-moved on rebuild — provenance, not releases). **No jar building** — that's spigot-build. |
+| `.github/workflows/refresh-jars.yml` | The **fresh-jar coupling**. spigot-build `repository_dispatch`es this (`jars-published`) right after it publishes a release; it runs `nix flake update spigot-build` and, if `flake.lock` changed, commits + pushes the bump **with `GH_PAT`** (so the push triggers `docker.yml` — `GITHUB_TOKEN` pushes don't). Single source of truth = the committed `flake.lock`, so the jar build is always finished before the image build. Same effect as a Dependabot `nix flake update`, just on-demand + same-day. |
+| `.github/workflows/check-outdated.yml` | Daily watchdog over the newest released version's **image**: pulls + boots it (StopOnStart plugin, compiled against the `spigot-api.jar` release asset) and, on failure, routes by cause — `broken`/`missing` → rebuild the image (`docker.yml`); `outdated` (Spigot's stale-jar banner, not an image fault) → cross-repo dispatch spigot-build's `build.yml` (needs `GH_PAT`) to rebuild the jar, which then flows back via `refresh-jars.yml`. Newest version from `.#imageMatrix`. Also the keepalive (re-arms the schedules). |
 | `.github/check-outdated/StopOnStart.java` + `plugin.yml` | Tiny Bukkit plugin: `onEnable()` → `getServer().shutdown()`. Used by the image watchdog to cleanly stop a server right after it boots. |
 | `flake.nix` | Builds the OCI image (`dockerTools.streamLayeredImage`) per released version: `packages.<sys>."<ver>"` (+ `default`/`dockerImage` = newest). Jar = the pinned `spigot-build` fetch; runtime JRE from `JAVA_MAJOR` via `mkJre` (jlinked all-modules JRE, not the full JDK). Inputs: `nixpkgs`, `nix-utils`, `mc-server-init`, `spigot-build`. `--impure` only feeds `DOCKER_LABELS_JSON`. Also exposes `.#imageMatrix` (versions × JDK) for CI. |
 | `src/entrypoint.sh` | Renders `server.properties`/`bukkit.yml`/`spigot.yml` from `MC__`/`BUKKIT__`/`SPIGOT__` env (via `yq`), applies the EULA gate + `BUNGEECORD` shortcut + `server-ip=0.0.0.0`, builds the JVM command (memory + a flags preset + `JVM_OPTS`), then `exec mc-server-init … -- java …` (PID 1 — PTY console + graceful stop). Packaged with `writeShellApplication`. |
@@ -50,7 +51,12 @@ There is no app source code — this repo is **CI/CD + a Docker entrypoint**. Th
 The runtime needs a specific JDK per Minecraft version. The version→major **rule
 lives in spigot-build** (`lib.jdkMajorFor`, mirroring its `matrix.ts`
 `JDK_BOUNDARIES`); docker-spigot reads it from the input and maps the major to a
-JRE (`jdkForPkgs` in `flake.nix`):
+JRE (`jdkForPkgs` in `flake.nix`). **Major 16 is the exception**: nixpkgs ships
+no JDK 16 and Spigot 1.17/1.17.1 reject Java 17+ at boot (*"Only up to Java 16 is
+supported"*), so the flake fetches the Adoptium **Temurin 16** JDK per-arch
+(`temurin16Jdk`, autoPatchelf'd — a build-time tool), then jlinks an
+ALL-MODULE-PATH **JRE** from it (`temurin16Jre`, re-patched + store-path-scrubbed,
+like the nixpkgs JDKs) instead of a nixpkgs JRE:
 
 | Spigot / Minecraft version | JDK |
 |---|---|
@@ -90,9 +96,11 @@ docker run --rm -v spigot-nix:/nix -v "$PWD:/work" \
     --override-input mc-server-init path:/mc-init --override-input spigot-build path:/spigot-build \
     '.#dockerImage' && cp -fL result /work/image.tar"
 
-# Build the StopOnStart plugin locally (against a spigot-build release jar, which
-# bundles the Bukkit API):
-javac --release 8 -cp spigot.jar -d plugin-build .github/check-outdated/StopOnStart.java
+# Build the StopOnStart plugin locally. Compile against the `spigot-api.jar`
+# release asset — the full `spigot.jar` is a bundler jar on modern versions (the
+# Bukkit API lives inside META-INF/versions, not on the classpath), so `-cp
+# spigot.jar` fails with "cannot find symbol JavaPlugin".
+javac --release 8 -cp spigot-api.jar -d plugin-build .github/check-outdated/StopOnStart.java
 cp .github/check-outdated/plugin.yml plugin-build/
 jar cf StopOnStart.jar -C plugin-build .
 
@@ -114,6 +122,10 @@ There is no test suite; validate by building an image (`nix build --impure
   `allow-nether` in `server.properties` is the old, ignored location.
 - **The "outdated" banner prints *before* the EULA gate**, so the image watchdog
   can detect it without accepting the EULA (the server then self-exits at the gate).
+- **The image ships `/etc/os-release` + `/etc/lsb-release`** (written in
+  `extraCommands`). The Nix minimal image has neither, and the JVM (oshi/JNA,
+  crash reports) logs *"File not found or not readable: /etc/os-release"* on every
+  boot without them.
 - **`yq` is the Go (mikefarah) `yq` everywhere now** — both the workflows and the
   entrypoint. It edits `server.properties` too (`-p props -o props`), which is a
   Java `.properties` file (not TOML). No Python in the image anymore.
@@ -124,7 +136,11 @@ There is no test suite; validate by building an image (`nix build --impure
 - **Ships a JRE, not the full JDK** (`mkJre` in `flake.nix`). A server needs no
   JDK tools, so Java 9+ uses a `jre_minimal` jlink runtime (kept at
   `ALL-MODULE-PATH` — every module, so any plugin works — only `jmods/`/dev
-  tools/debug dropped); Java 8 ships `jdk8_headless` as-is (no jlink pre-Java 9).
+  tools/debug dropped); Java 8 ships `jdk8_headless` as-is (no jlink pre-Java 9),
+  and Java 16 jlinks its JRE from the fetched **Temurin 16** JDK — same
+  ALL-MODULE-PATH runtime, but with a second autoPatchelf pass over the jlink
+  output (the jmod binaries carry Adoptium's interpreter/RPATH) — see the
+  JDK-per-version note above.
   Cut the 26.1.2 image from ~1.73 GB to ~750 MB. Two non-obvious gotchas:
   (1) `jre_minimal.override` must set **both** `jdk` *and* `jdkOnBuild` to the
   same JDK, else jlink uses an older JDK and can't read newer jmods ("Unsupported

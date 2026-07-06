@@ -30,12 +30,13 @@
       dataDir = "/srv/spigot"; # FHS: site-specific data served by this system
       uid = "65532";
 
-      # Per-Minecraft-version runtime JDK. nixpkgs has no Java 16; 1.17/1.17.1
-      # run fine on 17. The version→major mapping is owned by spigot-build
-      # (`spigot-build.lib.jdkMajorFor`); here we only map the major to a JRE.
+      # Per-Minecraft-version runtime JDK. The version→major mapping is owned by
+      # spigot-build (`spigot-build.lib.jdkMajorFor`); here we only map the major
+      # to a JRE. Major "16" is NOT here: nixpkgs ships no JDK 16 and Spigot
+      # 1.17/1.17.1 reject Java 17+ at boot ("Only up to Java 16 is supported"),
+      # so it needs a real Java 16 — handled by the `temurin16` fetch below.
       jdkForPkgs = pkgs: {
         "8" = pkgs.jdk8_headless;
-        "16" = pkgs.jdk17_headless;
         "17" = pkgs.jdk17_headless;
         "21" = pkgs.jdk21_headless;
         "25" = pkgs.jdk25_headless;
@@ -78,8 +79,11 @@
           # vestigial (the jlink image is self-contained; the launcher's
           # interpreter/RPATH point only at glibc/zlib), so scrub it with
           # remove-references-to and assert it's gone via disallowedReferences.
+          # Major 8 (predates jlink) and 16 (already a jlinked+patched JRE —
+          # temurin16Jre, built below) ship as-is; everything else is a nixpkgs
+          # JDK that gets jlinked here to an ALL-MODULE-PATH runtime.
           mkJre = major: jdk:
-            if major == "8" then jdk
+            if major == "8" || major == "16" then jdk
             else
               let
                 raw = pkgs.jre_minimal.override {
@@ -117,13 +121,118 @@
           inherit (nix-utils.lib.oci) secondsToNanos createdFromDate;
           fixHistoryScript = nix-utils.packages.${system}.fixOciImageHistory;
 
+          # Java 16 for 1.17/1.17.1. nixpkgs (nixos-26.05) ships no JDK 16 and
+          # those versions reject Java 17+ at boot ("Only up to Java 16 is
+          # supported"). Adoptium published no standalone Temurin 16 JRE, so fetch
+          # the JDK, autoPatchelf it to run in the minimal image (a build-time
+          # tool only — never shipped), then jlink a proper JRE from it below.
+          javaLibs = [
+            pkgs.stdenv.cc.cc.lib
+            pkgs.zlib
+            pkgs.alsa-lib
+            pkgs.fontconfig.lib
+            pkgs.freetype
+            pkgs.cups.lib
+            pkgs.xorg.libX11
+            pkgs.xorg.libXext
+            pkgs.xorg.libXi
+            pkgs.xorg.libXrender
+            pkgs.xorg.libXtst
+          ];
+          temurin16Jdk =
+            let
+              sel = {
+                "x86_64-linux" = { arch = "x64"; hash = "sha256-Mj1tdHSjWaKO/33dDfjmW9YVVKjtEu9C/ZNlNJ5XPCw="; };
+                "aarch64-linux" = { arch = "aarch64"; hash = "sha256-y3fZ0Sb5eJjf3ItftpTR4OXZPROgpssq7advhjU4Q0A="; };
+              }.${system};
+            in
+            pkgs.stdenv.mkDerivation {
+              pname = "temurin-jdk-bin";
+              version = "16.0.2+7";
+              src = pkgs.fetchurl {
+                url = "https://github.com/adoptium/temurin16-binaries/releases/download/jdk-16.0.2%2B7/OpenJDK16U-jdk_${sel.arch}_linux_hotspot_16.0.2_7.tar.gz";
+                hash = sel.hash;
+              };
+              nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+              buildInputs = javaLibs;
+              dontConfigure = true;
+              dontBuild = true;
+              installPhase = ''
+                runHook preInstall
+                mkdir -p $out
+                cp -a . $out/
+                runHook postInstall
+              '';
+            };
+
+          # Ship a JRE, not the full JDK: jlink an ALL-MODULE-PATH runtime (every
+          # module → any plugin works) from the patched JDK, then autoPatchelf it
+          # (the launcher/libs come from the JDK's jmods, so they carry Adoptium's
+          # interpreter/RPATH and need re-patching) and scrub the JDK store path
+          # jlink bakes into lib/modules, so the full JDK stays out of the closure.
+          # This mirrors mkJre's jlink path for the nixpkgs JDKs (9+).
+          temurin16Jre = pkgs.stdenv.mkDerivation {
+            name = "spigot-jre-16";
+            dontUnpack = true;
+            # mkDerivation (not runCommand) so the fixup phase runs autoPatchelfHook
+            # over the jlink output — runCommand skips fixup, leaving the launcher's
+            # interpreter unpatched ("no such file or directory" on exec).
+            nativeBuildInputs = [ pkgs.autoPatchelfHook pkgs.removeReferencesTo ];
+            buildInputs = javaLibs;
+            disallowedReferences = [ temurin16Jdk ];
+            installPhase = ''
+              runHook preInstall
+              # No --compress: jlink bakes the JDK store path into lib/modules,
+              # and remove-references-to below rewrites it in place (same length →
+              # offsets stay valid). Compressing would put that path inside a
+              # compressed blob, so the byte-rewrite corrupts it → SIGSEGV at boot.
+              ${temurin16Jdk}/bin/jlink \
+                --module-path ${temurin16Jdk}/jmods \
+                --add-modules ALL-MODULE-PATH \
+                --strip-debug --no-man-pages --no-header-files \
+                --output $out
+              chmod -R u+w $out
+              find $out -type f -exec remove-references-to -t ${temurin16Jdk} {} +
+              runHook postInstall
+            '';
+          };
+
+          # The Nix minimal image ships no distro release files, so the JVM
+          # (oshi/JNA, crash reports) logs "File not found or not readable:
+          # /etc/os-release" / "/etc/lsb-release" on every boot. nixpkgs has no
+          # prebuilt os-release package (only the NixOS module generates one), so
+          # provide them declaratively — same writeTextDir approach NixOS uses —
+          # with VERSION_ID taken from nixpkgs rather than hardcoded.
+          osReleaseFiles = pkgs.symlinkJoin {
+            name = "spigot-os-release";
+            paths = [
+              (pkgs.writeTextDir "etc/os-release" ''
+                NAME="Spigot (Nix)"
+                ID=spigot
+                PRETTY_NAME="d3strukt0r/spigot (Nix-built minimal image)"
+                VERSION_ID="${nixpkgs.lib.trivial.release}"
+                BUILD_ID="${nixpkgs.lib.trivial.version}"
+                HOME_URL="https://github.com/Team-MaRo/docker-spigot"
+              '')
+              (pkgs.writeTextDir "etc/lsb-release" ''
+                DISTRIB_ID=Spigot
+                DISTRIB_RELEASE="${nixpkgs.lib.trivial.release}"
+                DISTRIB_DESCRIPTION="d3strukt0r/spigot (Nix-built minimal image)"
+              '')
+            ];
+          };
+
           # Build the image for one Minecraft version. The jar is the pinned fetch
           # from spigot-build (no impure path); the runtime JDK is chosen from the
           # version via spigot-build.lib.jdkMajorFor.
           mkImage = version:
             let
               javaMajor = spigot-build.lib.jdkMajorFor version;
-              jre = mkJre javaMajor (jdkFor.${javaMajor} or pkgs.jdk25_headless);
+              # Major 16 is already a jlinked JRE (temurin16Jre); mkJre ships it
+              # as-is. Everything else is a nixpkgs JDK that mkJre jlinks.
+              jdkBase = if javaMajor == "16" then temurin16Jre
+                        else jdkFor.${javaMajor} or pkgs.jdk25_headless;
+              jre = mkJre javaMajor jdkBase;
 
               # The entrypoint with its runtime PATH baked in (java/yq/coreutils/
               # grep + mc-server-init). writeShellApplication shellchecks it.
@@ -162,6 +271,7 @@
                   # or hand-made symlink. Otherwise it would sit only in /nix/store,
                   # which nothing scans. Without it oshi logs "Did not find udev".
                   pkgs.systemdLibs
+                  osReleaseFiles
                   entrypoint
                   console
                   jarLayer

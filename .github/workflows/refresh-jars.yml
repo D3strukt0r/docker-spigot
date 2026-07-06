@@ -1,0 +1,62 @@
+name: Refresh jars
+
+# On-demand flake.lock bump that pulls in spigot-build's freshly published jars.
+# spigot-build dispatches this (type: jars-published) right after it publishes a
+# release, so the image only ever consumes jars that already exist. The committed
+# flake.lock bump then triggers docker.yml via its push path filter — the same
+# path as a Dependabot `nix flake update spigot-build`, just on-demand and
+# same-day. This is what guarantees "jars finished before the image builds".
+
+on:
+  repository_dispatch:
+    types: [jars-published]
+  workflow_dispatch:
+
+permissions:
+  contents: write # commit the flake.lock bump
+
+concurrency:
+  group: refresh-jars-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Push to master is gated by a ruleset behind a PR; authenticate as the
+          # GH_PAT bypass user so the push lands AND so it triggers docker.yml
+          # (pushes made with GITHUB_TOKEN never trigger further workflows).
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Repin spigot-build to its latest published release (new jar versions +
+      # rebuilt hashes). Only flake.lock changes.
+      - name: Update spigot-build input
+        run: nix flake update spigot-build
+
+      - name: Commit + push if changed
+        env:
+          BUILD_MSG: 'chore(deps): refresh spigot-build jars'
+        run: |
+          set -euo pipefail
+          if git diff --quiet flake.lock; then
+            echo "flake.lock unchanged; jars already current."
+            exit 0
+          fi
+          git add flake.lock
+          git commit -m "$BUILD_MSG"
+          git push origin "HEAD:${GITHUB_REF#refs/heads/}"
